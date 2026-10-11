@@ -36,12 +36,15 @@ do
   vim.opt.expandtab = true
   vim.opt.tabstop = 4
   vim.opt.softtabstop = 4
+  vim.opt.shiftwidth = 4
+  vim.opt.termguicolors = true
 
 
   vim.o.list = true
   vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
   vim.o.inccommand = 'split'
   vim.o.cursorline = true
+  vim.o.cmdheight=0
 
   vim.o.scrolloff = 10
 

@@ -15,6 +15,11 @@ vim.pack.add {
 vim.pack.add({
   { src = 'https://github.com/nvim-tree/nvim-web-devicons' }
 })
+vim.pack.add { gh 'Bekaboo/dropbar.nvim' }
+vim.pack.add { gh 'mikavilpas/yazi.nvim' }
+vim.pack.add { gh 'nvim-telescope/telescope-fzf-native.nvim' }
+
+
 
 local keymaps = require('core.keymaps')
 
@@ -54,13 +59,12 @@ require('which-key').setup {
 -- Highlight todo, notes, etc in comments
 require('todo-comments').setup { signs = false }
 
-local navic = require("nvim-navic")
+-- Change File System
 
-vim.lsp.config('clangd', {
-    on_attach = function(client, bufnr)
-        navic.attach(client, bufnr)
-    end
+vim.g.loaded_netrwPlugin = 1
+vim.g.loaded_netrw = 1
+
+
+require("yazi").setup({
+  open_for_directories = true,
 })
-
-
-
