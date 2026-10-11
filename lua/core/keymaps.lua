@@ -99,4 +99,18 @@ function M.gitsigns(bufnr, gitsigns)
   )
 end
 
+
+-- For Dropbar
+
+vim.keymap.set('n', '<leader>;', function() require('dropbar.api').pick() end, { desc = 'Pick symbols in winbar' })
+vim.keymap.set('n', '[;', function() require('dropbar.api').goto_context_start() end, { desc = 'Go to start of current context' })
+vim.keymap.set('n', '];', function() require('dropbar.api').select_next_context() end, { desc = 'Select next content' })
+
+-- Yazi
+
+vim.keymap.set({ "n", "v" }, "<leader>e", "<cmd>Yazi<cr>", {
+  desc = "Open yazi at the current file",
+  remap = false,
+})
+
 return M
