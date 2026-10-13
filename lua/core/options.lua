@@ -6,7 +6,7 @@ do
   -- Enable faster startup by caching compiled Lua modules
   vim.loader.enable()
 
-  --  NOTE: Must happen before plugins are loaded 
+  --  NOTE: Must happen before plugins are loaded
   --        (otherwise wrong leader will be used)
   vim.g.mapleader = ' '
   vim.g.maplocalleader = ' '
@@ -51,5 +51,19 @@ do
   vim.o.confirm = true
 
   vim.cmd.filetype("plugin indent on")
+
+  -- Change File System
+  vim.g.loaded_netrwPlugin = 1
+  vim.g.loaded_netrw = 1
+
+
+
+  if vim.g.neovide then
+      -- Put anything you want to happen only in Neovide here
+      vim.o.guifont = "Liga SFMono Nerd Font:h14" -- text below applies for VimScript
+      vim.opt.linespace = 0
+      vim.g.neovide_opacity = 0.95
+      vim.g.neovide_normal_opacity = 0.95
+  end
 
 end
