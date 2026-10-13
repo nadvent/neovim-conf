@@ -6,20 +6,24 @@ local function gh(repo) return 'https://github.com/' .. repo end
 
 vim.pack.add { gh 'NMAC427/guess-indent.nvim' }
 vim.pack.add { gh 'lewis6991/gitsigns.nvim' }
-vim.pack.add { gh 'folke/todo-comments.nvim' }
-vim.pack.add { gh 'folke/persistence.nvim' }
 vim.pack.add {
   {src = 'https://codeberg.org/cryptomilk/nvim-pack-ui'}
 }
 vim.pack.add({
   { src = 'https://github.com/nvim-tree/nvim-web-devicons' }
 })
-vim.pack.add { gh 'Bekaboo/dropbar.nvim' }
-vim.pack.add { gh 'mikavilpas/yazi.nvim' }
+vim.pack.add { gh 'Bekaboo/dropbar.nvim' } -- Crumbs for winbar
+vim.pack.add { gh 'mikavilpas/yazi.nvim' } -- Integration with Yazi FM
+vim.pack.add { gh 'folke/persistence.nvim' }
 vim.pack.add { gh 'nvim-mini/mini.nvim' }
+vim.pack.add { gh 'folke/todo-comments.nvim' }
 vim.pack.add { gh 'folke/snacks.nvim'}
+vim.pack.add { gh 'folke/noice.nvim'}
+vim.pack.add { gh 'folke/trouble.nvim'}
 vim.pack.add { gh '/saghen/blink.indent' }
 vim.pack.add { gh 'kdheepak/lazygit.nvim'}
+vim.pack.add { gh 'MunifTanjim/nui.nvim'}
+vim.pack.add { gh 'rcarriga/nvim-notify'}
 
 require('guess-indent').setup {}
 require('todo-comments').setup { signs = false } -- Highlight todo, notes, etc in comments
@@ -101,3 +105,35 @@ gitsigns.setup {
       vim.keymap.set({ 'o', 'x' }, 'ih', gitsigns.select_hunk, { desc = 'text object [i]nside [h]unk', buf = bufnr })
     end,
   }
+
+  require("noice").setup({
+    lsp = {
+      -- override markdown rendering so that **cmp** and other plugins use **Treesitter**
+      override = {
+        ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
+        ["vim.lsp.util.stylize_markdown"] = true,
+        ["cmp.entry.get_documentation"] = true, -- requires hrsh7th/nvim-cmp
+      },
+    },
+    -- you can enable a preset for easier configuration
+    presets = {
+      bottom_search = true, -- use a classic bottom cmdline for search
+      command_palette = true, -- position the cmdline and popupmenu together
+      long_message_to_split = true, -- long messages will be sent to a split
+      inc_rename = false, -- enables an input dialog for inc-rename.nvim
+      lsp_doc_border = false, -- add a border to hover docs and signature help
+    },
+  })
+
+require("trouble").setup({})
+
+vim.api.nvim_create_autocmd("VimEnter", {
+  group = vim.api.nvim_create_augroup("persistence", { clear = true }),
+  nested = true,
+  callback = function()
+    -- Only load if nvim was started with no arguments
+    if vim.fn.argc() == 0 then
+      require("persistence").load()
+    end
+  end,
+})
