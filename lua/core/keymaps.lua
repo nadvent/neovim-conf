@@ -1,4 +1,3 @@
-
 -- keymap.lua
 -- Global keymaps, which-key groups, and diagnostic display settings.
 --
@@ -35,7 +34,6 @@ wk.add({
   { "<leader>u", group = "UI / Editor" },
   { "<leader>x", group = "Diagnostics / Lists" },
   { "<leader><Tab>", group = "Tabs" },
-  { "<leader>w", group = "Windows"},
   { "gr", group = "LSP", mode = "n" },
 })
 
@@ -111,23 +109,50 @@ map("n", "gcO", "O<esc>Vcx<esc><cmd>normal gcc<cr>fxa<bs>", {
   desc = "Add Comment Above",
 })
 
+-- Move Lines
+map("n", "<A-j>", "<cmd>execute 'move .+' . v:count1<cr>==", { desc = "Move Down" })
+map("n", "<A-k>", "<cmd>execute 'move .-' . (v:count1 + 1)<cr>==", { desc = "Move Up" })
+map("i", "<A-j>", "<esc><cmd>m .+1<cr>==gi", { desc = "Move Down" })
+map("i", "<A-k>", "<esc><cmd>m .-2<cr>==gi", { desc = "Move Up" })
+map("v", "<A-j>", ":<C-u>execute \"'<,'>move '>+\" . v:count1<cr>gv=gv", { desc = "Move Down" })
+map("v", "<A-k>", ":<C-u>execute \"'<,'>move '<-\" . (v:count1 + 1)<cr>gv=gv", { desc = "Move Up" })
+
 -- ============================================================
 -- Files, buffers, and explorer
 -- ============================================================
 
 map("n", "<leader>fn", "<cmd>enew<cr>", { desc = "New File" })
 
+map("n", "<S-h>", "<cmd>bprevious<cr>", { desc = "Prev Buffer" })
+map("n", "<S-l>", "<cmd>bnext<cr>", { desc = "Next Buffer" })
+map("n", "[b", "<cmd>bprevious<cr>", { desc = "Prev Buffer" })
+map("n", "]b", "<cmd>bnext<cr>", { desc = "Next Buffer" })
+map("n", "<leader>bb", "<cmd>e #<cr>", { desc = "Switch to Other Buffer" })
+map("n", "<leader>`", "<cmd>e #<cr>", { desc = "Switch to Other Buffer" })
+map("n", "<leader>bd", function()
+  Snacks.bufdelete()
+end, { desc = "Delete Buffer" })
+map("n", "<leader>bo", function()
+  Snacks.bufdelete.other()
+end, { desc = "Delete Other Buffers" })
+map("n", "<leader>bi", function()
+  Snacks.bufdelete.invisible()
+end, { desc = "Delete Invisible Buffers" })
+map("n", "<leader>bD", "<cmd>:bd<cr>", { desc = "Delete Buffer and Window" })
 -- Keep both the grouped mapping and Kickstart's familiar buffer-picker chord.
 local builtin = require("telescope.builtin")
 map("n", "<leader>bb", builtin.buffers, { desc = "List Buffers" })
-map("n", "<leader><leader>", builtin.buffers, { desc = "Find Existing Buffers" })
 
 -- Yazi: open at the current file/directory.
-map({ "n", "v" }, "<leader>e", "<cmd>Yazi<cr>", {
+map({ "n", "v" }, "<leader>ff", "<cmd>Yazi<cr>", {
   desc = "Open Yazi at Current File",
   remap = false,
 })
 
+map({ "n", "v" }, "<leader>fF", "<cmd>Yazi cwd<cr>", {
+  desc = "Open Yazi at Current Working Directory",
+  remap = false,
+})
 -- ============================================================
 -- Search (Telescope)
 -- ============================================================
@@ -168,40 +193,32 @@ end, { desc = "Search Neovim Config" })
 -- Code / LSP navigation
 -- ============================================================
 
--- Telescope-based LSP pickers are installed buffer-locally when an LSP attaches.
-local telescope_lsp_group = vim.api.nvim_create_augroup("telescope-lsp-attach", { clear = true })
-vim.api.nvim_create_autocmd("LspAttach", {
-  group = telescope_lsp_group,
-  callback = function(event)
-    local buf = event.buf
+-- Telescope-based LSP pickers are installed buffer-locally when an LSP attaches. (see plugins.code)
 
-    map("n", "grr", builtin.lsp_references, {
-      buffer = buf,
-      desc = "Goto References",
-    })
-    map("n", "gri", builtin.lsp_implementations, {
-      buffer = buf,
-      desc = "Goto Implementations",
-    })
-    map("n", "grd", builtin.lsp_definitions, {
-      buffer = buf,
-      desc = "Goto Definitions",
-    })
-    map("n", "gO", builtin.lsp_document_symbols, {
-      buffer = buf,
-      desc = "Document Symbols",
-    })
-    map("n", "gW", builtin.lsp_dynamic_workspace_symbols, {
-      buffer = buf,
-      desc = "Workspace Symbols",
-    })
-    map("n", "grt", builtin.lsp_type_definitions, {
-      buffer = buf,
-      desc = "Goto Type Definition",
-    })
-  end,
+map("n", "grr", builtin.lsp_references, {
+    buffer = buf,
+    desc = "Goto References",
 })
-
+map("n", "gri", builtin.lsp_implementations, {
+    buffer = buf,
+    desc = "Goto Implementations",
+})
+map("n", "grd", builtin.lsp_definitions, {
+    buffer = buf,
+    desc = "Goto Definitions",
+})
+map("n", "gO", builtin.lsp_document_symbols, {
+    buffer = buf,
+    desc = "Document Symbols",
+})
+map("n", "gW", builtin.lsp_dynamic_workspace_symbols, {
+    buffer = buf,
+    desc = "Workspace Symbols",
+})
+map("n", "grt", builtin.lsp_type_definitions, {
+    buffer = buf,
+    desc = "Goto Type Definition",
+})
 -- Trouble's code/LSP views belong in the Code group.
 map("n", "<leader>cs", "<cmd>Trouble symbols toggle focus=false<cr>", {
   desc = "Toggle Symbols",
@@ -210,6 +227,7 @@ map("n", "<leader>cl", "<cmd>Trouble lsp toggle focus=false win.position=right<c
   desc = "Toggle LSP References / Definitions",
 })
 
+map({ 'n', 'v' }, '<leader>cf', function() require('conform').format { async = true } end, { desc = '[F]ormat buffer' })
 -- ============================================================
 -- Diagnostics, quickfix, and location lists
 -- ============================================================
@@ -291,7 +309,7 @@ map("n", "<leader>xQ", "<cmd>Trouble qflist toggle<cr>", {
 })
 
 -- ============================================================
--- Debugging (nvim-dap)
+-- Debugging (nvim-dap) and Runner (overseer)
 -- ============================================================
 
 local dap = function()
@@ -316,6 +334,8 @@ map("n", "<F2>", function() dap().step_over() end, { desc = "Debug: Step Over" }
 map("n", "<F3>", function() dap().step_out() end, { desc = "Debug: Step Out" })
 map("n", "<F7>", function() require("dapui").toggle() end, { desc = "Debug: Toggle UI" })
 
+map("n", "<leader>rr", "<cmd>OverseerRun<CR>", { desc = "Run Overseer"})
+map("n", "<leader>rt", "<cmd>OverseerToggle<CR>", { desc = "Toggle Overseer"})
 -- ============================================================
 -- UI / editor utilities
 -- ============================================================
@@ -334,16 +354,13 @@ map("n", "<leader>uP", "<cmd>Pack<cr>", { desc = "Plugin / Pack UI" })
 -- Windows, tabs, and terminal
 -- ============================================================
 
-map("n", "<leader>-", "<C-W>s", { desc = "Split Window Below", remap = true })
-map("n", "<leader>|", "<C-W>v", { desc = "Split Window Right", remap = true })
-map("n", "<leader>wd", "<C-W>c", { desc = "Delete Window", remap = true })
--- Snacks.toggle.zoom():map("<leader>wm"):map("<leader>uZ")
--- Snacks.toggle.zen():map("<leader>uz")
-
 map("n", "<C-h>", "<C-w><C-h>", { desc = "Focus Left Window" })
 map("n", "<C-l>", "<C-w><C-l>", { desc = "Focus Right Window" })
 map("n", "<C-j>", "<C-w><C-j>", { desc = "Focus Lower Window" })
 map("n", "<C-k>", "<C-w><C-k>", { desc = "Focus Upper Window" })
+map("n", "<leader>wd", "<C-W>c", { desc = "Delete Window", remap = true })
+map("n", "<leader>-", "<C-W>s", { desc = "Split Window Below", remap = true })
+map("n", "<leader>|", "<C-W>v", { desc = "Split Window Right", remap = true })
 
 map("n", "<leader><Tab>l", "<cmd>tablast<cr>", { desc = "Last Tab" })
 map("n", "<leader><Tab>o", "<cmd>tabonly<cr>", { desc = "Close Other Tabs" })
@@ -376,6 +393,26 @@ map("n", "<leader>qd", function()
 end, { desc = "Stop Session Saving" })
 
 map("n", "<leader>qq", "<cmd>qa<cr>", { desc = "Quit All" })
+
+
+-- ============================================================
+-- Git
+-- ============================================================
+if vim.fn.executable("lazygit") == 1 then
+  map("n", "<leader>gg", function() Snacks.lazygit( { cwd = LazyVim.root.git() }) end, { desc = "Lazygit (Root Dir)" })
+  map("n", "<leader>gG", function() Snacks.lazygit() end, { desc = "Lazygit (cwd)" })
+end
+
+map("n", "<leader>gL", function() Snacks.picker.git_log() end, { desc = "Git Log (cwd)" })
+map("n", "<leader>gb", function() Snacks.picker.git_log_line() end, { desc = "Git Blame Line" })
+map("n", "<leader>gf", function() Snacks.picker.git_log_file() end, { desc = "Git Current File History" })
+map("n", "<leader>gl", function() Snacks.picker.git_log({ cwd = LazyVim.root.git() }) end, { desc = "Git Log" })
+map({ "n", "x" }, "<leader>gB", function() Snacks.gitbrowse() end, { desc = "Git Browse (open)" })
+map({"n", "x" }, "<leader>gY", function()
+  Snacks.gitbrowse({ open = function(url) vim.fn.setreg("+", url) end, notify = false })
+end, { desc = "Git Browse (copy)" })
+
+
 
 -- ============================================================
 -- Reserved namespaces for future workflows

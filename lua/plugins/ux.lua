@@ -9,9 +9,7 @@ vim.pack.add { gh 'lewis6991/gitsigns.nvim' }
 vim.pack.add {
   {src = 'https://codeberg.org/cryptomilk/nvim-pack-ui'}
 }
-vim.pack.add({
-  { src = 'https://github.com/nvim-tree/nvim-web-devicons' }
-})
+vim.pack.add { gh 'nvim-tree/nvim-web-devicons' }
 vim.pack.add { gh 'Bekaboo/dropbar.nvim' } -- Crumbs for winbar
 vim.pack.add { gh 'mikavilpas/yazi.nvim' } -- Integration with Yazi FM
 vim.pack.add { gh 'folke/persistence.nvim' }
@@ -24,12 +22,14 @@ vim.pack.add { gh '/saghen/blink.indent' }
 vim.pack.add { gh 'kdheepak/lazygit.nvim'}
 vim.pack.add { gh 'MunifTanjim/nui.nvim'}
 vim.pack.add { gh 'rcarriga/nvim-notify'}
+vim.pack.add { gh 'nvim-pack/nvim-spectre'}
 
 require('guess-indent').setup {}
 require('todo-comments').setup { signs = false } -- Highlight todo, notes, etc in comments
 require("yazi").setup({open_for_directories = true,})
 require('persistence').setup()
 require('blink.indent').setup()
+require('spectre').setup()
 
 
 -- [[ mini.nvim ]]
