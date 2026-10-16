@@ -10,17 +10,17 @@ vim.pack.add { gh 'rose-pine/neovim' }
 vim.pack.add { gh 'sainnhe/everforest' }
 vim.pack.add { gh "folke/tokyonight.nvim" }
 
-require("catppuccin").setup({
-	flavour = "latte",
-	transparent_background = true,
-})
-
-
-require("github-theme").setup({
-	options = {
-		transparent = true,
-	}
-})
+-- require("catppuccin").setup({
+-- 	flavour = "latte",
+-- 	transparent_background = true,
+-- })
+--
+--
+-- require("github-theme").setup({
+-- 	options = {
+-- 		transparent = true,
+-- 	}
+-- })
 
 require("nightfox").setup({
 	options = {
@@ -28,18 +28,18 @@ require("nightfox").setup({
 	}
 })
 
-require("rose-pine").setup({
-	variant = "dawn",
-	styles = { transparency = true},
-})
-
-require('tokyonight').setup {
-    transparent= true,
-    styles = {
-      comments = { italic = false }, -- Disable italics in comments
-    },
-  }
-
+-- require("rose-pine").setup({
+-- 	variant = "dawn",
+-- 	styles = { transparency = true},
+-- })
+--
+-- require('tokyonight').setup {
+--     transparent= true,
+--     styles = {
+--       comments = { italic = false }, -- Disable italics in comments
+--     },
+--   }
+--
 vim.g.everforest_transparent_background = 1
 
 vim.cmd.colorscheme 'dayfox'
