@@ -2,7 +2,19 @@
 
 ## Introduction
 
-My (WIP) neovim setup documentation that I use with Niri + Noctalia. I used distros before (e.g. [LunarVim](https://github.com/lunarvim/lunarvim) and [LazyVim](https://www.lazyvim.org/)) before for my studies in college - where I didn't even have a laptop, just used Termux - and university. After awhile, there's a lot of features that are built into neovim itself, I changed to [Zed](https://zed.dev/). It's pretty good, but I have some time to kill, so I thought why not write my neovim config from scratch this time for self-learning.
+My (WIP) neovim setup documentation that I use with Niri + Noctalia. I used distros before, e.g. [LunarVim](https://github.com/lunarvim/lunarvim) and [LazyVim](https://www.lazyvim.org/))  for my studies in college - where I didn't even have a laptop, I just used Termux - and university. After awhile, there's a lot of features that are built into neovim itself! Quite a lot of stuff breaks due to it as well, so I changed to [Zed](https://zed.dev/). It's pretty good, but I have some time to kill, so I thought why not write my neovim config from scratch this time. And by that, I mean using [Kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) as a base config.
+
+---
+
+## Installation
+
+1. Install [Neovim](https://neovim.io/doc/install/)
+2. Some linux dependencies
+  ``` bash
+  sudo pacman -S --needed git base-devel gcc cmake make ripgrep fd fzf sed unzip tar curl wget tree-sitter tree-sitter-cli nodejs npm python python-pip go rustup yazi lazygit wl-clipboard 
+  ```
+3. Patched [nerd font](https://www.nerdfonts.com/)
+4. Run `:checkhealth` to see if there's anything missing.
 
 ---
 
@@ -26,7 +38,6 @@ My (WIP) neovim setup documentation that I use with Niri + Noctalia. I used dist
 │   ├── keymaps.lua                 # Global keymap topology & which-key groups
 │   ├── autocmd.lua                 # General autocommands (highlight on yank, etc.)
 │   ├── themes.lua                  # Colorscheme selection (Dayfox / Nightfox)
-│   └── ui_highlights.lua           # Custom highlight overrides
 │
 ├── plugins/                        # Central plugin engines
 │   ├── init.lua                    # Plugin loading hub & dynamic opt/ filetype router
@@ -103,30 +114,38 @@ All core coding subsystems are orchestrated in `plugins/code.lua`:
 
 ## Keymap Cheat Sheet
 
-### Leader Key Reference (`<Space>`)
+Please refer to `/lua/core/keymaps.lua` for an _almost_ complete list of available keymaps. Below is a sheet that roughly covers how to use keymaps.
 
-| Prefix            | Namespace        | Common Actions                                                                                                                                                                                        |
-| :---------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `<leader>f`       | **Files**        | `<leader>fn` New file, `<leader>ff` Yazi at current file, `<leader>fF` Yazi at CWD                                                                                                                    |
-| `<leader>s`       | **Search**       | `<leader><space>` Find files, `<leader>sg` Live grep, `<leader>sw` Grep word, `<leader>sd` Diagnostics, `<leader>s.` Recent files, `<leader>/` Search buffer                                          |
-| `<leader>b`       | **Buffers**      | `<leader>bb` / `<leader>,` List active buffers, `<leader>\`` Switch alternate buffer, `&lt;leader&gt;bd` Safe delete (preserves window splits)                                                        |
-| `&lt;leader&gt;c` | **Code / LSP**   | `&lt;leader&gt;ca` Code action, `&lt;leader&gt;cf` Format buffer, `&lt;leader&gt;cd` Line diagnostic, `&lt;leader&gt;cs` Symbols (Trouble), `&lt;leader&gt;cl` LSP definitions                        |
-| `&lt;leader&gt;d` | **Debug (DAP)**  | `&lt;leader&gt;dc` Continue, `&lt;leader&gt;di` Step into, `&lt;leader&gt;do` Step over, `&lt;leader&gt;dO` Step out, `&lt;leader&gt;db` Toggle breakpoint, `&lt;leader&gt;du` Toggle Debug UI        |
-| `&lt;leader&gt;r` | **Runner**       | `&lt;leader&gt;rr` Run Overseer task, `&lt;leader&gt;rt` Toggle Overseer task window, `&lt;leader&gt;ra` Task action                                                                                  |
-| `&lt;leader&gt;g` | **Git**          | `&lt;leader&gt;gg` Open LazyGit, `&lt;leader&gt;gl` Git commit log, `&lt;leader&gt;gs` Git status, `&lt;leader&gt;hs` Stage hunk, `&lt;leader&gt;hr` Reset hunk, `&lt;leader&gt;tb` Toggle line blame |
-| `&lt;leader&gt;u` | **UI Toggles**   | `&lt;leader&gt;uw` Line wrap, `&lt;leader&gt;us` Spell check, `&lt;leader&gt;ul` Relative numbers, `&lt;leader&gt;ud` Diagnostics, `&lt;leader&gt;uc` Conceal level                                   |
-| `&lt;leader&gt;q` | **Session**      | `&lt;leader&gt;qs` Restore current directory session, `&lt;leader&gt;ql` Restore last session, `&lt;leader&gt;qq` Quit all                                                                            |
-| `&lt;leader&gt;a` | **AI Assistant** | `&lt;leader&gt;aa` Toggle Sidekick CLI, `&lt;leader&gt;at` Send context, `&lt;leader&gt;af` Send file, `&lt;leader&gt;ap` Select prompt                                                               |
+### Which-Key Groups Cheat Sheet
 
-### Navigation & Core Shortcuts
+| Which-Key Group                     | Description                                                         | Keymaps & Examples                                                                                                                                                                                                                                                                                                                |
+| :---------------------------------- | :------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`<leader>a`**<br>`AI Assistant`   | Sidekick AI CLI integration, prompt templates, and session controls | • `<C-.>` Focus assistant terminal<br>• `<leader>aa` Toggle Sidekick CLI float<br>• `<leader>ac` Toggle Gemini directly<br>• `<leader>at` Send `{this}` context<br>• `<leader>av` Send visual selection<br>• `<leader>ap` Select prompt template                                                                                  |
+| **`<leader>b`**<br>`Buffers`        | Buffer switching, listing, and layout-preserving deletion           | • `<leader>bb` / `<leader>,` List and switch buffers via Telescope<br>• `<leader>`\` Switch to alternate (last active) buffer<br>• `<leader>bd` Delete buffer safely without breaking splits (`mini.bufremove`)<br>• `<leader>bD` Force delete buffer                                                                             |
+| **`<leader>c`**<br>`Code / LSP`     | Formatting, symbol outline trees, and LSP definition panes          | • `<leader>cf` Format buffer (Conform with LSP fallback)<br>• `<leader>cd` Show line diagnostics in floating window<br>• `<leader>cs` Toggle symbol outline tree (Trouble)<br>• `<leader>cl` Toggle LSP definitions & references pane (Trouble)                                                                                   |
+| **`<leader>d`**<br>`Debug`          | nvim-dap debugger execution, breakpoints, and UI toggle             | • `<leader>dc` / `<F5>` Start or continue debugging<br>• `<leader>db` / `<leader>dB` Toggle breakpoint / conditional breakpoint<br>• `<leader>di` / `<F1>` Step into; `<leader>do` / `<F2>` Step over; `<leader>dO` / `<F3>` Step out<br>• `<leader>du` / `<F7>` Toggle debug UI (`dapui`)                                        |
+| **`<leader>f`**<br>`Files / Find`   | New file creation and terminal file manager integration             | • `<leader>ff` Open Yazi file manager at current file<br>• `<leader>fF` Open Yazi at project root (CWD)<br>• `<leader>fn` Create new empty buffer                                                                                                                                                                                 |
+| **`<leader>g`**<br>`Git`            | LazyGit terminal, commit history logs, and branch switching         | • `<leader>gg` Open LazyGit floating terminal<br>• `<leader>gs` Git status & changed files picker (Telescope)<br>• `<leader>gl` / `<leader>gL` Git commit log / active buffer commits<br>• `<leader>gb` List and checkout branches                                                                                                |
+| **`<leader>h`**<br>`Git Hunks`      | Gitsigns hunk staging, resetting, inline previews, and diffing      | • `<leader>hs` / `<leader>hr` Stage / reset hunk (or visual selection)<br>• `<leader>hp` / `<leader>hi` Preview hunk (floating popup / inline)<br>• `<leader>hb` Show full git blame for current line<br>• `<leader>hd` / `<leader>hD` Diff against index / last commit<br>• `ih` Text object to operate on inside git hunk       |
+| **`<leader>q`**<br>`Session / Quit` | Persistence session restoration, saving controls, and quitting      | • `<leader>qs` Restore session for current working directory<br>• `<leader>ql` Restore last active session<br>• `<leader>qS` Select from saved sessions<br>• `<leader>qq` Quit all windows and exit (`:qa`)                                                                                                                       |
+| **`<leader>r`**<br>`Run / Overseer` | Task runner execution, task actions, and fast re-runs               | • `<leader>rr` Run task from templates (`:OverseerRun`)<br>• `<leader>rt` Toggle task runner status panel<br>• `<leader>or` Rerun most recent successful task                                                                                                                                                                     |
+| **`<leader>s`**<br>`Search`         | Telescope fuzzy finding for files, grep, help tags, and configs     | • `<leader><Space>` / `<leader>sf` Find files in workspace<br>• `<leader>sg` Live grep across project files<br>• `<leader>sw` Grep word under cursor (or visual selection)<br>• `<leader>/` Fuzzy search within current buffer<br>• `<leader>sn` Search Neovim configuration files<br>• `<leader>sr` Resume previous search query |
+| **`<leader>t`**<br>`Toggles`        | Quick inline toggles for Git virtual text annotations               | • `<leader>tb` Toggle virtual text git blame on current line<br>• `<leader>tw` Toggle intra-line word diff                                                                                                                                                                                                                        |
+| **`<leader>u`**<br>`UI / Settings`  | Editor display toggles, syntax inspection, and plugin UI            | • `<leader>uw` Toggle line wrap<br>• `<leader>ul` Toggle relative line numbers<br>• `<leader>ud` Toggle inline diagnostics on/off<br>• `<leader>uc` Toggle conceal level (0 ↔ 2)<br>• `<leader>ur` Redraw screen & clear search highlights<br>• `<leader>uP` Open package manager UI (`:Pack`)                                    |
+| **`<leader>w`**<br>`Windows`        | Split creation, resizing, and window balancing                      | • `<leader>-` Split window horizontally (below)<br>• `<leader>\|` Split window vertically (right)<br>• `<leader>wd` Close active window split<br>• `<leader>w=` Balance window sizes equally                                                                                                                                      |
+| **`<leader>x`**<br>`Diagnostics`    | Project-wide diagnostics, quickfix, and location lists              | • `<leader>xx` / `<leader>xX` Workspace / buffer diagnostics (Trouble)<br>• `<leader>xq` / `<leader>xl` Toggle quickfix list / location list window<br>• `<leader>xD` Send buffer diagnostics to location list                                                                                                                    |
+| **`<leader><Tab>`**<br>`Tabs`       | Tab creation, navigation, and tab closing                           | • `<leader><Tab><Tab>` Open new tab<br>• `<leader><Tab>d` Close active tab<br>• `<leader><Tab>o` Close other tabs<br>• `<leader><Tab>]` / `[` Go to next / previous tab                                                                                                                                                           |
+| **`g`**<br>`Goto`                   | Code definitions, symbols, and fast comment insertion               | • `gd` Goto definition via Telescope<br>• `gO` Document symbols outline picker<br>• `gW` Dynamic workspace symbols search<br>• `gco` / `gcO` Add comment line below / above                                                                                                                                                       |
+| **`gr`**<br>`LSP Actions`           | Language server cross-references and implementations                | • `grr` Goto references via Telescope<br>• `gri` Goto interface implementations<br>• `grt` Goto type definitions                                                                                                                                                                                                                  |
 
-- **Screen Line Navigation**: `j`/`k` move by visual screen lines unless a numerical count is supplied (e.g. `5j`).
-- **Centered Scrolling**: `<C-d>` and `<C-u>` jump half-pages while keeping the cursor centered (`zz`).
-- **Window Navigation & Resizing**: `<C-h/j/k/l>` focus adjacent windows; `<C-Up/Down/Left/Right>` resize window dimensions smoothly.
-- **Safe Visual Paste**: In visual mode, `p` replaces the selection without clobbering your default clipboard register.
-- **Window Splits**: `<leader>-` splits horizontally; `<leader>\|` splits vertically; `<leader>wd` closes the active window.
-- **Buffer Cycles**: `<S-h>` / `<S-l>` or `[b` / `]b` cycle previous/next buffer.
-- **Diagnostic Jumps**: `]d` / `[d` cycle all diagnostics; `]e` / `[e` jump directly between errors.
+## Core Non-Leader Keymaps
+
+| Category                  | Keymaps                                                                                                               | Description / Example                                                                                                                                                                                                                                                                                                                                                                                         |
+| :------------------------ | :-------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Navigation & Jumps**    | `s` / `S`<br>`r` / `R`<br>`]c` / `[c`<br>`]d` / `[d`<br>`[b` / `]b` (or `<S-h>` / `<S-l>`)                            | • `s` / `S`: Flash 2-char jump / treesitter node jump<br>• `r` / `R`: Remote Flash / treesitter search in operator mode<br>• `]c` / `[c`: Jump to next / previous git change<br>• `]d` / `[d`: Jump to next / previous diagnostic (`]e` error, `]w` warning)<br>• `[b` / `]b`: Previous / next open buffer                                                                                                    |
+| **Window Focus & Sizing** | `<C-h>` `<C-j>` `<C-k>` `<C-l>`<br>`<C-Up>` `<C-Down>` `<C-Left>` `<C-Right>`                                         | • `<C-h/j/k/l>`: Navigate directly to left/down/up/right split<br>• `<C-Arrows>`: Resize active split height/width by ±2 lines/columns                                                                                                                                                                                                                                                                        |
+| **Editing & Ergonomics**  | `<C-s>`<br>`<A-j>` / `<A-k>`<br>`p` (visual)<br>`<` / `>` (visual)<br>`,` `.` `;` (insert)<br>`<Esc><Esc>` (terminal) | • `<C-s>`: Save file from insert, normal, or visual mode<br>• `<A-j>` / `<A-k>`: Bubble current line or visual selection up / down<br>• `p`: Paste visual selection without replacing clipboard contents<br>• `<` / `>`: Indent selection left/right and retain visual highlight<br>• `,` `.` `;`: Create automatic undo breakpoints while typing<br>• `<Esc><Esc>`: Exit terminal insert mode (`<C-\><C-n>`) |
+
 
 ---
 
@@ -137,7 +156,7 @@ All core coding subsystems are orchestrated in `plugins/code.lua`:
 Overseer opens a floating input buffer when configuring tasks with parameters, setting `vim.bo.omnifunc = "v:lua.overseer_form_omnifunc"`. Native Blink source (`blink-overseer`) directly in `plugins/code.lua`:
 
 - Dynamically executes Overseer's omnifunc to fetch enum values (`clang`, `gcc`, `Debug`, `Release`).
-- Assigns `score_offset = 100` so task options always sort at the top of the popup.
+- Prioritize Overseer choices for autocompletion
 - Uses dynamic source evaluation (`sources.default = function()`) to mute LSP and snippets inside the form, presenting an isolated completion list.
 
 ### 2. Dynamic CMake Target Generator
