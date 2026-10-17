@@ -23,11 +23,11 @@ require('todo-comments').setup { signs = false }
 require('yazi').setup { open_for_directories = true }
 require('blink.indent').setup()
 require('flash').setup()
-require('trouble').setup()
 
 -- 2.5 Lazy-loading
 
 vim.api.nvim_create_user_command('Spectre', function() require('spectre').open() end, {})
+vim.schedule(function() require('trouble').setup {} end)
 
 -- 3. Session Management (persistence + colocated autocmd)
 require('persistence').setup()

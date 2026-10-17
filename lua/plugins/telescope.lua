@@ -7,7 +7,7 @@ local function gh(repo) return 'https://github.com/' .. repo end
 local telescope_plugins = {
   gh 'nvim-lua/plenary.nvim',
   gh 'nvim-telescope/telescope.nvim',
-  gh 'nvim-telescope/telescope-ui-select.nvim',
+  -- gh 'nvim-telescope/telescope-ui-select.nvim',
 }
 if vim.fn.executable 'make' == 1 then table.insert(telescope_plugins, gh 'nvim-telescope/telescope-fzf-native.nvim') end
 
@@ -34,5 +34,5 @@ vim.schedule(function()
 
   -- Enable Telescope extensions if they are installed
   pcall(require('telescope').load_extension, 'fzf')
-  pcall(require('telescope').load_extension, 'ui-select')
+  -- pcall(require('telescope').load_extension, 'ui-select')
 end)

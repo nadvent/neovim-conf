@@ -319,7 +319,23 @@ map('n', '<F7>', function() require('dapui').toggle() end, { desc = 'Debug: Togg
 map('n', '<leader>rr', '<cmd>OverseerRun<cr>', { desc = 'Run Task' })
 map('n', '<leader>rt', '<cmd>OverseerToggle<cr>', { desc = 'Toggle Task Runner' })
 map('n', '<leader>ra', '<cmd>OverseerTaskAction<cr>', { desc = 'Task Action' })
+map('n', '<leader>or', function()
+  local overseer = require 'overseer'
+  local tasks = overseer.list_tasks {
+    status = overseer.STATUS.SUCCESS,
+    sort = function(a, b)
+      -- Most recently updated/started first
+      return a.id > b.id
+    end,
+  }
 
+  if #tasks > 0 then
+    -- Rerun the most recent successful task
+    tasks[1]:restart()
+  else
+    vim.notify('No previously successful task found', vim.log.levels.WARN)
+  end
+end, { desc = 'Overseer: Rerun last successful task' })
 -- ============================================================================
 -- 9. GIT INTEGRATION
 -- ============================================================================
