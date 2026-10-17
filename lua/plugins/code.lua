@@ -223,22 +223,24 @@ do
   local ensure_installed = vim.tbl_keys(servers)
   vim.list_extend(ensure_installed, extra_tools)
 
-  require('mason-tool-installer').setup {
-    ensure_installed = ensure_installed,
-    auto_update = false,
-    run_on_start = true,
-    start_delay = 3000, -- Delay check by 3 seconds after startup
-  }
+  vim.schedule(function()
+    require('mason-tool-installer').setup {
+      ensure_installed = ensure_installed,
+      auto_update = false,
+      run_on_start = true,
+      start_delay = 3000, -- Delay check by 3 seconds after startup
+    }
 
-  require('mason-lspconfig').setup {
-    automatic_enable = {
-      -- Exclude servers managed by dedicated language plugins when you split them out:
-      exclude = {
-        'rust_analyzer', -- Uncomment when using mrcjkb/rustaceanvim
-        -- 'jdtls',         -- Uncomment when using mfussenegger/nvim-jdtls
+    require('mason-lspconfig').setup {
+      automatic_enable = {
+        -- Exclude servers managed by dedicated language plugins when you split them out:
+        exclude = {
+          'rust_analyzer', -- Uncomment when using mrcjkb/rustaceanvim
+          -- 'jdtls',         -- Uncomment when using mfussenegger/nvim-jdtls
+        },
       },
-    },
-  }
+    }
+  end)
 end
 
 -- ============================================================================
@@ -357,6 +359,60 @@ do
     snippetDir = '~/Documents/Snippets',
   }
 
+  package.preload['blink-overseer'] = function()
+    local provider = {}
+
+    function provider.new() return setmetatable({}, { __index = provider }) end
+
+    function provider:get_completions(context, callback)
+      -- Only run if the buffer has Overseer's omnifunc
+      if vim.bo.omnifunc ~= 'v:lua.overseer_form_omnifunc' or not _G.overseer_form_omnifunc then
+        callback { is_incomplete_forward = false, is_incomplete_backward = false, items = {} }
+        return
+      end
+
+      -- Call Overseer's omnifunc in findstart mode (1)
+      local start_col = _G.overseer_form_omnifunc(1, '')
+      if not start_col or start_col < 0 then
+        callback { is_incomplete_forward = false, is_incomplete_backward = false, items = {} }
+        return
+      end
+
+      -- Extract current text typed after the field label
+      local line = context.line
+      local cursor_col = context.cursor[2]
+      local base = line:sub(start_col + 1, cursor_col)
+
+      -- Call Overseer's omnifunc in search mode (0)
+      local results = _G.overseer_form_omnifunc(0, base)
+      if not results or #results == 0 then
+        callback { is_incomplete_forward = false, is_incomplete_backward = false, items = {} }
+        return
+      end
+
+      -- Map Overseer results to Blink completion items
+      local items = {}
+      for _, item in ipairs(results) do
+        local word = type(item) == 'string' and item or item.word
+        local menu = (type(item) == 'table' and item.menu) and item.menu or 'Overseer'
+        table.insert(items, {
+          label = word,
+          insertText = word,
+          kind = require('blink.cmp.types').CompletionItemKind.EnumMember,
+          detail = menu,
+        })
+      end
+
+      callback {
+        is_incomplete_forward = false,
+        is_incomplete_backward = false,
+        items = items,
+      }
+    end
+
+    return provider
+  end
+
   require('blink.cmp').setup {
     keymap = {
       preset = 'enter',
@@ -382,8 +438,15 @@ do
       ghost_text = { enabled = true },
     },
     sources = {
-      default = { 'lsp', 'path', 'snippets' },
-      providers = {},
+      default = { 'lsp', 'path', 'snippets', 'overseer' },
+      providers = {
+        overseer = {
+          name = 'Overseer',
+          module = 'blink-overseer',
+          score_offset = 100,
+          enabled = function() return vim.bo.omnifunc == 'v:lua.overseer_form_omnifunc' end,
+        },
+      },
     },
     snippets = { preset = 'luasnip' },
     fuzzy = { implementation = 'prefer_rust_with_warning' },
@@ -435,7 +498,18 @@ do
     },
   }
 
-  require('overseer').setup {}
+  require('overseer').setup {
+    -- Ensure template runner delegates enum/param prompts to vim.ui.select
+    form = {
+      border = 'rounded',
+      win_opts = {
+        winblend = 0,
+      },
+    },
+    task_launcher = {
+      -- Change the bindings / provider if needed
+    },
+  }
 end
 
 -- ============================================================================
@@ -472,7 +546,7 @@ do
     'php',
     'phpdoc',
   }
-  require('nvim-treesitter').install(parsers)
+  -- require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
   ---@param language string

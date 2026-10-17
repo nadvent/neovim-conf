@@ -41,7 +41,7 @@ require('snacks').setup {
   explorer = { enabled = false },
   indent = { enabled = false },
   input = { enabled = true },
-  picker = { enabled = false },
+  picker = { enabled = true, ui_select = true },
   notifier = { enabled = true },
   quickfile = { enabled = true },
   scope = { enabled = true },
