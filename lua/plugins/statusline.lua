@@ -23,6 +23,9 @@ local modes = {
   ['t'] = 'TERMINAL',
 }
 
+vim.api.nvim_set_hl(0, 'StatusLine', { bg = 'none' })
+vim.api.nvim_set_hl(0, 'StatusLineNC', { bg = 'none' })
+
 local mode_highlights = {
   StatuslineModeNormal = { fg = '#fff9e8', bg = '#1d1c11', bold = true },
   StatuslineModeInsert = { fg = '#1d1c11', bg = '#9bd85c', bold = true },

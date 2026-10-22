@@ -107,7 +107,7 @@ do
       settings = {
         basedpyright = {
           analysis = {
-            typeCheckingMode = 'standard', -- 'off' | 'basic' | 'standard' | 'strict' | 'all'
+            typeCheckingMode = 'strict', -- 'off' | 'basic' | 'standard' | 'strict' | 'all'
             disableOrganizeImports = true, -- Let Ruff handle import sorting
           },
         },
