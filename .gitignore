@@ -4,6 +4,7 @@ test.sh
 nvim
 
 spell/
+lua/assets/catppuccin-latte/icons/
 
 # In your personal fork, you likely want to comment this, since it's recommended to track
 # nvim-pack-lock.json in version control - see :help vim.pack-lockfile

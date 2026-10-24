@@ -46,6 +46,14 @@ M.symbol_kinds = {
     Variable = '󰀫',
 }
 
+--- Git icons.
+M.git = {
+    branch = '',
+    added = ' ',
+    changed = ' ',
+    removed = ' ',
+}
+
 --- Shared icons that don't really fit into a category.
 M.misc = {
     bug = '',

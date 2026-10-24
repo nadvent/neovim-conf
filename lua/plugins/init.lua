@@ -36,6 +36,12 @@ do
         vim.cmd 'TSUpdate'
         return
       end
+
+      if name == 'real-icons.nvim' then
+        if not ev.data.active then vim.cmd.packadd 'real-icons.nvim' end
+        vim.cmd 'RealIcons install'
+        return
+      end
     end,
   })
 end

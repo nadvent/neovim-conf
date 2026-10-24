@@ -1,0 +1,14 @@
+{
+  "name": "catppuccin-latte-icons",
+  "displayName": "Catppuccin Latte Icons",
+  "version": "1.0.0",
+  "contributes": {
+    "iconThemes": [
+      {
+        "id": "catppuccin-latte",
+        "label": "Catppuccin Latte",
+        "path": "./theme.json"
+      }
+    ]
+  }
+}
