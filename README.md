@@ -1,8 +1,8 @@
-# kickstart.nvim
+# Neovim
 
 ## Introduction
 
-My (WIP) neovim setup documentation that I use with Niri + Noctalia. I used distros before, e.g. [LunarVim](https://github.com/lunarvim/lunarvim) and [LazyVim](https://www.lazyvim.org/)) for my studies in college - where I didn't even have a laptop, I just used Termux - and university. After awhile, there's a lot of features that are built into neovim itself! Quite a lot of stuff breaks due to it as well, so I changed to [Zed](https://zed.dev/). It's pretty good, but I have some time to kill, so I thought why not write my neovim config from scratch this time. And by that, I mean using [Kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) as a base config.
+My neovim setup documentation that I use with Umbriel + Noctalia. I used distros before for around 2-3 years when I was studying. Now, I'm transitioning to writing my own config using [Kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) as a base config. See my [dotfiles](https://github.com/nadvent/dotfiles) for my other config files.
 
 ---
 
