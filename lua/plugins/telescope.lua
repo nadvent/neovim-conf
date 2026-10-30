@@ -14,25 +14,22 @@ if vim.fn.executable 'make' == 1 then table.insert(telescope_plugins, gh 'nvim-t
 -- NOTE: You can install multiple plugins at once
 vim.pack.add(telescope_plugins)
 
--- In plugins/telescope.lua (or plugins/init.lua):
-vim.schedule(function()
-  -- See `:help telescope` and `:help telescope.setup()`
-  require('telescope').setup {
-    -- You can put your default mappings / updates / etc. in here
-    --  All the info you're looking for is in `:help telescope.setup()`
-    --
-    -- defaults = {
-    --   mappings = {
-    --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-    --   },
-    -- },
-    -- pickers = {}
+local function init_telescope()
+  if _G._telescope_configured then return end
+  _G._telescope_configured = true
+  local telescope = require 'telescope'
+  telescope.setup {
     extensions = {
       ['ui-select'] = { require('telescope.themes').get_dropdown() },
     },
   }
+  pcall(telescope.load_extension, 'fzf')
+  pcall(telescope.load_extension, 'todo-comments')
+end
 
-  -- Enable Telescope extensions if they are installed
-  pcall(require('telescope').load_extension, 'fzf')
-  -- pcall(require('telescope').load_extension, 'ui-select')
-end)
+_G.init_telescope = init_telescope
+
+vim.api.nvim_create_autocmd('CmdUndefined', {
+  pattern = { 'Telescope', 'TodoTelescope' },
+  callback = function() init_telescope() end,
+})

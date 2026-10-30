@@ -20,16 +20,34 @@ vim.pack.add {
 }
 
 -- 2. Fast / Zero-Config Setups
-require('guess-indent').setup {}
-require('todo-comments').setup { signs = false }
 require('yazi').setup { open_for_directories = true }
-require('blink.indent').setup {}
 require('flash').setup()
+
+local function setup_buffer_plugins()
+  if _G._buf_plugins_setup then return end
+  _G._buf_plugins_setup = true
+
+  pcall(function() require('guess-indent').setup {} end)
+  pcall(function() require('todo-comments').setup { signs = false } end)
+  pcall(function() require('blink.indent').setup {} end)
+  pcall(function()
+    require('mini.ai').setup {
+      mappings = { around_next = 'aa', inside_next = 'ii' },
+      n_lines = 500,
+    }
+  end)
+  pcall(function() require('mini.surround').setup() end)
+  pcall(function() require('mini.pairs').setup() end)
+end
+
+vim.api.nvim_create_autocmd({ 'BufReadPost', 'BufNewFile' }, {
+  once = true,
+  callback = setup_buffer_plugins,
+})
 
 -- 2.5 Lazy-loading
 
 vim.api.nvim_create_user_command('Spectre', function() require('spectre').open() end, {})
-vim.schedule(function() require('trouble').setup {} end)
 
 -- 3. Session Management (persistence + colocated autocmd)
 require('persistence').setup()
@@ -52,20 +70,48 @@ require('real-icons').setup {
   integrations = {
     snacks_picker = true,
     bufferline = true,
+    mini_files = true,
   },
-  pack = 'catppuccin-latte',
   packs = {
     ['catppuccin-latte'] = latte_pack,
     latte = latte_pack,
   },
 }
 
-require('mini.ai').setup {
-  mappings = { around_next = 'aa', inside_next = 'ii' },
-  n_lines = 500,
-}
-require('mini.surround').setup()
-require('mini.pairs').setup()
+local function init_mini_files()
+  if _G._mini_files_initialized then return end
+  _G._mini_files_initialized = true
+
+  require('mini.files').setup {
+    content = {
+      prefix = function(fs_entry)
+        local ok, real_icons = pcall(require, 'real-icons')
+        if ok then
+          local icon, hl
+          if fs_entry.fs_type == 'directory' then
+            icon, hl = real_icons.get('folder', fs_entry.name)
+            if not icon then
+              icon, hl = '', 'MiniFilesDirectory'
+            end
+          else
+            icon, hl = real_icons.get('file', fs_entry.name)
+            if not icon then
+              icon, hl = '󰈔', 'MiniFilesFile'
+            end
+          end
+          return icon .. ' ', hl
+        end
+        return require('mini.files').default_prefix(fs_entry)
+      end,
+    },
+    windows = {
+      preview = true,
+      width_focus = 35,
+      width_preview = 45,
+    },
+  }
+end
+_G.init_mini_files = init_mini_files
 
 -- 5. Command line & UI enhancements
 require('noice').setup {
@@ -111,9 +157,10 @@ local project_path_source = {
     local norm_buf = vim.fs.normalize(bufname)
     local rel_path = vim.startswith(norm_buf, norm_root .. '/') and norm_buf:sub(#norm_root + 2) or vim.fs.basename(norm_buf)
 
-    -- Format as "ProjectRoot/.../file" if deeper than 1 subfolder, else "ProjectRoot/path"
+    -- Format as "ProjectRoot/.../Folder/file" if exceeding 4 levels, else "ProjectRoot/path"
     local parts = vim.split(rel_path, '/')
-    local path_display = #parts > 2 and string.format('%s/.../%s', root_name, parts[#parts]) or string.format('%s/%s', root_name, rel_path)
+    local path_display = #parts >= 4 and string.format('%s/.../%s/%s', root_name, parts[#parts - 1], parts[#parts])
+      or string.format('%s/%s', root_name, rel_path)
 
     return {
       bar.dropbar_symbol_t:new {
@@ -198,135 +245,29 @@ dropbar.setup {
 
 -- 6. Bufferline & Dropbar Theming
 
+_G.BufferlineToggleMiniFiles = function(minwid, clicks, button, modifiers)
+  if button and button ~= 'l' then return end
+  vim.schedule(function()
+    if _G.init_mini_files then _G.init_mini_files() end
+    local ok, mf = pcall(require, 'mini.files')
+    if not ok then return end
+    if not mf.close() then
+      local bufname = vim.api.nvim_buf_get_name(0)
+      if bufname ~= '' and vim.uv.fs_stat(bufname) then
+        mf.open(bufname, true)
+      else
+        mf.open(vim.fn.getcwd(), true)
+      end
+    end
+  end)
+end
+
 local noctalia = require 'core.noctalia'
-
-local function get_contrast_fg(hex, dark_fg, light_fg)
-  dark_fg = dark_fg or '#181b1b'
-  light_fg = light_fg or '#ffffff'
-  local r, g, b = (hex or ''):match '^#(%x%x)(%x%x)(%x%x)$'
-  if not r then return light_fg end
-  local lum = (0.299 * tonumber(r, 16) + 0.587 * tonumber(g, 16) + 0.114 * tonumber(b, 16)) / 255
-  return lum > 0.55 and dark_fg or light_fg
-end
-
-local function apply_dropbar_highlights(c)
-  local border = c.border_color or '#6f7fa1'
-  local fg = c.fg or '#181b1b'
-  local accent = c.accent_primary or '#1e50ba'
-  local bg = c.bg or '#d3dff8'
-
-  local hls = {
-    WinBar = { bg = 'none', underline = true, sp = border },
-    WinBarNC = { bg = 'none', underline = true, sp = border },
-    DropBarFileName = { fg = fg, bold = true, underline = true, sp = border },
-    DropBarIconUISeparator = { fg = border, underline = true, sp = border },
-    DropBarIconUISeparatorNC = { fg = border, underline = true, sp = border },
-    DropBarCurrentContext = { fg = accent, bold = true, underline = true, sp = border },
-    DropBarCurrentContextIcon = { fg = accent, underline = true, sp = border },
-    DropBarCurrentContextName = { fg = accent, bold = true, underline = true, sp = border },
-    DropBarMenuFloatBorder = { fg = border, bg = bg },
-    DropBarMenuNormalFloat = { fg = fg, bg = bg },
-  }
-  for group, def in pairs(hls) do
-    vim.api.nvim_set_hl(0, group, def)
-  end
-end
-
-local function get_bufferline_highlights(c)
-  c = c or noctalia.get_colors()
-  local sep = c.border_color or '#6f7fa1'
-  local accent = c.accent_primary or '#1e50ba'
-  local search_accent = c.accent_search or '#c6003d'
-  local active_fg = get_contrast_fg(accent, c.fg or '#181b1b', c.bg or '#ffffff')
-  local palette = c.palette or {}
-
-  local function hl(opts) return vim.tbl_extend('keep', opts or {}, { bg = 'none', underline = true, sp = sep }) end
-
-  local inactive = hl { fg = sep }
-  local active = hl { fg = active_fg, bg = accent, sp = accent }
-  local active_bold = hl { fg = active_fg, bg = accent, sp = accent, bold = true }
-  local modified = hl { fg = search_accent }
-  local separator = hl { fg = sep }
-
-  local highlights = {
-    fill = hl(),
-    background = inactive,
-    indicator_visible = hl { fg = 'none' },
-    separator_selected = hl { fg = sep, sp = accent },
-
-    -- Duplicate buffer paths
-    duplicate = hl { fg = c.sel_fg or '#47494f', italic = true },
-    duplicate_visible = hl { fg = c.sel_fg or '#47494f', italic = true },
-    duplicate_selected = hl { fg = active_fg, bg = accent, sp = accent, italic = true },
-
-    -- Modified buffers
-    modified = modified,
-    modified_visible = modified,
-    tab_close = modified,
-
-    -- Diagnostics (inactive / visible)
-    error = modified,
-    error_visible = modified,
-    warning = hl { fg = palette[3] or '#e5c07b' },
-    warning_visible = hl { fg = palette[3] or '#e5c07b' },
-    info = hl { fg = palette[6] or '#1b4f7e' },
-    info_visible = hl { fg = palette[6] or '#1b4f7e' },
-    hint = hl { fg = palette[5] or '#017979' },
-    hint_visible = hl { fg = palette[5] or '#017979' },
-  }
-
-  -- Batch-assign uniform highlight states
-  for _, key in ipairs { 'buffer_visible', 'close_button', 'close_button_visible', 'tab', 'numbers', 'numbers_visible' } do
-    highlights[key] = inactive
-  end
-  for _, key in ipairs { 'separator', 'separator_visible', 'trunc_marker', 'offset_separator' } do
-    highlights[key] = separator
-  end
-  for _, key in ipairs {
-    'buffer_selected',
-    'indicator_selected',
-    'tab_selected',
-    'numbers_selected',
-    'error_selected',
-    'warning_selected',
-    'info_selected',
-    'hint_selected',
-  } do
-    highlights[key] = active_bold
-  end
-  for _, key in ipairs { 'close_button_selected', 'modified_selected' } do
-    highlights[key] = active
-  end
-
-  return highlights
-end
-
-local function apply_ui_theme(c)
-  c = c or noctalia.get_colors()
-  local sep = c.border_color or '#6f7fa1'
-
-  -- Preserve TabLine transparency across colorschemes
-  vim.api.nvim_set_hl(0, 'TabLineFill', { bg = 'none', underline = true, sp = sep })
-  vim.api.nvim_set_hl(0, 'TabLine', { bg = 'none', underline = true, sp = sep })
-
-  apply_dropbar_highlights(c)
-
-  local ok, bl_hl = pcall(require, 'bufferline.highlights')
-  if not ok then return end
-
-  for name, hl_def in pairs(get_bufferline_highlights(c)) do
-    local group = bl_hl.generate_name(name)
-    if group then vim.api.nvim_set_hl(0, group, hl_def) end
-  end
-end
-
-apply_ui_theme()
-noctalia.on_reload(apply_ui_theme)
-vim.api.nvim_create_autocmd('ColorScheme', { callback = function() apply_ui_theme() end })
+noctalia.setup()
 
 local bufferline = require 'bufferline'
 bufferline.setup {
-  highlights = get_bufferline_highlights(),
+  highlights = noctalia.get_bufferline_highlights(),
   options = {
     custom_areas = {
       left = function()
@@ -334,8 +275,25 @@ bufferline.setup {
         local wininfo = vim.fn.getwininfo(win)[1]
         local gutter_width = wininfo and wininfo.textoff or 0
 
-        if gutter_width > 0 then return { { text = string.rep(' ', gutter_width) } } end
-        return {}
+        local icon = ''
+        local icon_w = vim.fn.strdisplaywidth(icon)
+        local total_w = math.max(icon_w + 2, gutter_width)
+        local remaining = total_w - icon_w
+        local pad_left = math.floor(remaining / 2)
+        local pad_right = remaining - pad_left
+
+        local dir_hl = vim.api.nvim_get_hl(0, { name = 'Directory', link = false })
+        local icon_fg = dir_hl and dir_hl.fg and string.format('#%06x', dir_hl.fg) or '#2848a9'
+
+        local clickable_icon = string.format('%%0@v:lua.BufferlineToggleMiniFiles@%s%s%s%%X', string.rep(' ', pad_left), icon, string.rep(' ', pad_right))
+
+        return {
+          {
+            text = clickable_icon,
+            fg = icon_fg,
+            bold = true,
+          },
+        }
       end,
     },
     themable = true, -- allows highlight groups to be overriden i.e. sets highlights as default
@@ -349,7 +307,7 @@ bufferline.setup {
     right_trunc_marker = ' ',
     separator_style = 'thin',
 
-    color_icons = false, -- whether or not to add the filetype icon highlights
+    color_icons = true, -- whether or not to add the filetype icon highlights
     show_buffer_icons = false,
     show_buffer_close_icons = true,
     show_close_icon = true,

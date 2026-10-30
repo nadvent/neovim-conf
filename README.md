@@ -2,7 +2,7 @@
 
 ## Introduction
 
-My (WIP) neovim setup documentation that I use with Niri + Noctalia. I used distros before, e.g. [LunarVim](https://github.com/lunarvim/lunarvim) and [LazyVim](https://www.lazyvim.org/))  for my studies in college - where I didn't even have a laptop, I just used Termux - and university. After awhile, there's a lot of features that are built into neovim itself! Quite a lot of stuff breaks due to it as well, so I changed to [Zed](https://zed.dev/). It's pretty good, but I have some time to kill, so I thought why not write my neovim config from scratch this time. And by that, I mean using [Kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) as a base config.
+My (WIP) neovim setup documentation that I use with Niri + Noctalia. I used distros before, e.g. [LunarVim](https://github.com/lunarvim/lunarvim) and [LazyVim](https://www.lazyvim.org/)) for my studies in college - where I didn't even have a laptop, I just used Termux - and university. After awhile, there's a lot of features that are built into neovim itself! Quite a lot of stuff breaks due to it as well, so I changed to [Zed](https://zed.dev/). It's pretty good, but I have some time to kill, so I thought why not write my neovim config from scratch this time. And by that, I mean using [Kickstart.nvim](https://github.com/nvim-lua/kickstart.nvim) as a base config.
 
 ---
 
@@ -10,9 +10,11 @@ My (WIP) neovim setup documentation that I use with Niri + Noctalia. I used dist
 
 1. Install [Neovim](https://neovim.io/doc/install/)
 2. Some linux dependencies
-  ``` bash
-  sudo pacman -S --needed git base-devel gcc cmake make ripgrep fd fzf sed unzip tar curl wget tree-sitter tree-sitter-cli nodejs npm python python-pip go rustup yazi lazygit wl-clipboard 
-  ```
+
+```bash
+sudo pacman -S --needed git base-devel gcc cmake make ripgrep fd fzf sed unzip tar curl wget tree-sitter tree-sitter-cli nodejs npm python python-pip go rustup yazi lazygit wl-clipboard
+```
+
 3. Patched [nerd font](https://www.nerdfonts.com/)
 4. Run `:checkhealth` to see if there's anything missing.
 
@@ -21,7 +23,7 @@ My (WIP) neovim setup documentation that I use with Niri + Noctalia. I used dist
 ## Core
 
 1. **Native Package Management (`vim.pack`)**: All plugins are declared and managed directly through Neovim 0.12's native package manager (`vim.pack.add`).
-2. **~100ms Startup**: Optimized with `vim.loader.enable()`, deferred DAP/Mason initialization, on-demand UI loaders, and lazy filetype modules.
+2. **~80ms Startup**: Optimized with `vim.loader.enable()`, deferred DAP/Mason initialization, on-demand UI loaders, and lazy filetype modules.
 3. **Semantic Keymap Topology**: Most keybinding follows `<leader>` namespaces (`<leader>c` for Code, `<leader>d` for Debug, `<leader>r` for Runner, `<leader>g` for Git, `<leader>u` for UI toggles, etc).
 
 ---
@@ -146,7 +148,6 @@ Please refer to `/lua/core/keymaps.lua` for an _almost_ complete list of availab
 | **Window Focus & Sizing** | `<C-h>` `<C-j>` `<C-k>` `<C-l>`<br>`<C-Up>` `<C-Down>` `<C-Left>` `<C-Right>`                                         | • `<C-h/j/k/l>`: Navigate directly to left/down/up/right split<br>• `<C-Arrows>`: Resize active split height/width by ±2 lines/columns                                                                                                                                                                                                                                                                        |
 | **Editing & Ergonomics**  | `<C-s>`<br>`<A-j>` / `<A-k>`<br>`p` (visual)<br>`<` / `>` (visual)<br>`,` `.` `;` (insert)<br>`<Esc><Esc>` (terminal) | • `<C-s>`: Save file from insert, normal, or visual mode<br>• `<A-j>` / `<A-k>`: Bubble current line or visual selection up / down<br>• `p`: Paste visual selection without replacing clipboard contents<br>• `<` / `>`: Indent selection left/right and retain visual highlight<br>• `,` `.` `;`: Create automatic undo breakpoints while typing<br>• `<Esc><Esc>`: Exit terminal insert mode (`<C-\><C-n>`) |
 
-
 ---
 
 ## Custom Integrations & Technical Highlights
@@ -166,3 +167,15 @@ The Overseer template in `overseer/template/user/cmake_build_run.lua` is written
 - Reads `CMakeLists.txt` via Lua pattern matching to extract active executable targets.
 - Dynamically injects dedicated build-and-run tasks for each detected target into the `:OverseerRun` menu.
 - Provides a fallback runner using `find` so built binaries execute reliably regardless of build directory naming.
+
+### 3. Noctalia Dynamic Theme Profile
+
+Set up a toggleable profile to switch to Noctalia's M3 Material palette generator based on Ghostty's palette (not the Base16 matugen for nvim).
+
+- Uses [Dayfox](https://github.com/edeneast/nightfox.nvim) theme as a base.
+- Sets transparency to groups like Winbar, Bufferline, Statusline, and Neovim's background.
+- Sets colour for Vim modes in statusline, background colours for pickers, and many more.
+
+---
+
+- Native statusline with separate User events so that `vim.cmd 'redrawstatus'` does not recalculate on every generic event.

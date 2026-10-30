@@ -18,9 +18,16 @@ do
 
   vim.o.number = true
   vim.o.relativenumber = true
+  vim.o.signcolumn = 'yes'
+  vim.o.statuscolumn = '  %s%=%{v:virtnum != 0 ? "" : (v:relnum ? v:relnum : v:lnum)}    '
   vim.o.mouse = 'a'
   vim.o.showmode = false
-  vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
+  vim.api.nvim_create_autocmd('UIEnter', {
+    once = true,
+    callback = function()
+      vim.defer_fn(function() vim.o.clipboard = 'unnamedplus' end, 50)
+    end,
+  })
   vim.o.breakindent = true
   vim.o.undofile = true
   vim.o.ignorecase = true
@@ -64,7 +71,8 @@ do
 
     -- Hook into Noctalia's generated theme file
     local function apply_noctalia()
-      local f = io.open(vim.fn.expand '~/.config/ghostty/themes/noctalia', 'r')
+      local config_dir = vim.env.XDG_CONFIG_HOME or vim.fn.expand '~/.config'
+      local f = io.open(config_dir .. '/ghostty/themes/noctalia', 'r')
       if not f then return end
 
       local theme = {}
