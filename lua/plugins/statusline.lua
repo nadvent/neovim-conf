@@ -4,20 +4,20 @@ local modes = {
   ['n'] = 'NORMAL',
   ['no'] = 'NORMAL',
   ['v'] = 'VISUAL',
-  ['V'] = 'VISUAL LINE',
-  ['\22'] = 'VISUAL BLOCK',
+  ['V'] = 'V-LINE',
+  ['\22'] = 'V-BLOCK',
   ['s'] = 'SELECT',
-  ['S'] = 'SELECT LINE',
-  ['\19'] = 'SELECT BLOCK',
+  ['S'] = 'S-LINE',
+  ['\19'] = 'S-BLOCK',
   ['i'] = 'INSERT',
   ['ic'] = 'INSERT',
   ['R'] = 'REPLACE',
-  ['Rv'] = 'VISUAL REPLACE',
+  ['Rv'] = 'V-REPLACE',
   ['c'] = 'COMMAND',
-  ['cv'] = 'VIM EX',
+  ['cv'] = 'EX',
   ['ce'] = 'EX',
   ['r'] = 'PROMPT',
-  ['rm'] = 'MOAR',
+  ['rm'] = 'MORE',
   ['r?'] = 'CONFIRM',
   ['!'] = 'SHELL',
   ['t'] = 'TERMINAL',
@@ -134,10 +134,23 @@ local function setup_git_highlights(c, item_bg)
   })
 end
 
--- Returns the current mode's display name.
+-- Returns the current mode's display name, padded to match the window gutter width.
 local function mode()
   local current_mode = vim.api.nvim_get_mode().mode
-  return string.format(' %s ', modes[current_mode] or current_mode):upper()
+  local name = (modes[current_mode] or current_mode):upper()
+
+  local win = vim.g.statusline_winid or vim.api.nvim_get_current_win()
+  local wininfo = vim.fn.getwininfo(win)[1]
+  local gutter_width = wininfo and wininfo.textoff or 0
+
+  local name_w = vim.fn.strdisplaywidth(name)
+  local target_w = math.max(gutter_width, name_w + 2)
+
+  local remaining = target_w - name_w
+  local pad_left = math.floor(remaining / 2)
+  local pad_right = remaining - pad_left
+
+  return string.rep(' ', pad_left) .. name .. string.rep(' ', pad_right)
 end
 
 -- Selects the highlight group for the current mode.
@@ -377,9 +390,17 @@ end
 
 setup_all_highlights()
 
-vim.api.nvim_create_autocmd({ 'ColorScheme', 'User' }, {
+vim.api.nvim_create_autocmd('ColorScheme', {
   group = id,
-  pattern = { '*', 'NoctaliaReload', 'RealIconsUpdated' },
+  callback = function()
+    setup_all_highlights()
+    vim.cmd 'redrawstatus'
+  end,
+})
+
+vim.api.nvim_create_autocmd('User', {
+  group = id,
+  pattern = { 'NoctaliaReload', 'RealIconsUpdated' },
   callback = function()
     setup_all_highlights()
     vim.cmd 'redrawstatus'

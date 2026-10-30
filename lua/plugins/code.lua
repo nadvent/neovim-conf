@@ -43,11 +43,14 @@ vim.pack.add {
 -- 2. LSP (Language Server Protocol & Mason)
 -- ============================================================================
 do
-  require('fidget').setup {}
-
   vim.api.nvim_create_autocmd('LspAttach', {
     group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
     callback = function(event)
+      if not _G._fidget_loaded then
+        _G._fidget_loaded = true
+        pcall(function() require('fidget').setup {} end)
+      end
+
       local map = function(keys, func, desc, mode)
         mode = mode or 'n'
         vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
@@ -82,6 +85,7 @@ do
       if client and client:supports_method('textDocument/inlayHint', event.buf) then
         map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
       end
+      if client and client:supports_method('textDocument/documentColor', event.buf) then vim.lsp.document_color.enable(true, { bufnr = event.buf }) end
     end,
   })
 
@@ -151,6 +155,11 @@ do
     -- [[ PHP ]]
     intelephense = {},
 
+    -- [[HTML]]
+    cssls = {
+      filetypes = { 'css', 'scss', 'less', 'html' },
+    },
+
     -- [[ Lua (Neovim Config) ]]
     lua_ls = {
       on_init = function(client)
@@ -186,13 +195,10 @@ do
     vim.lsp.enable(name)
   end
 
-  require('mason').setup {}
-
   -- External Formatters, Linters, and Debug Adapters for Mason to auto-install
   local extra_tools = {
     -- Lua
     'stylua',
-    -- 'selene',           -- Optional Lua linter
 
     -- C / C++
     'clang-format',
@@ -218,29 +224,42 @@ do
     -- PHP
     'pint', -- Laravel Pint (zero-config PHP-CS-Fixer wrapper)
     'phpstan', -- PHP static analysis linter
+
+    -- HTML
+    'emmet-language-server', -- Tags
+    'tailwindcss-language-server',
+    'css-lsp',
   }
 
   local ensure_installed = vim.tbl_keys(servers)
   vim.list_extend(ensure_installed, extra_tools)
 
-  vim.schedule(function()
+  local function init_mason()
+    if _G._mason_initialized then return end
+    _G._mason_initialized = true
+    require('mason').setup {}
     require('mason-tool-installer').setup {
       ensure_installed = ensure_installed,
       auto_update = false,
       run_on_start = true,
-      start_delay = 3000, -- Delay check by 3 seconds after startup
+      start_delay = 1000,
     }
-
     require('mason-lspconfig').setup {
       automatic_enable = {
-        -- Exclude servers managed by dedicated language plugins when you split them out:
         exclude = {
-          'rust_analyzer', -- Uncomment when using mrcjkb/rustaceanvim
-          -- 'jdtls',         -- Uncomment when using mfussenegger/nvim-jdtls
+          'rust_analyzer',
         },
       },
     }
-  end)
+  end
+
+  _G.init_mason = init_mason
+  vim.defer_fn(init_mason, 4000)
+
+  vim.api.nvim_create_user_command('Mason', function()
+    init_mason()
+    vim.cmd 'Mason'
+  end, {})
 end
 
 -- ============================================================================
@@ -310,9 +329,7 @@ end
 -- 4. LINTING (nvim-lint)
 -- ============================================================================
 do
-  local lint = require 'lint'
-
-  lint.linters_by_ft = {
+  local linters_by_ft = {
     -- C & C++ (Optional extra style check alongside clangd's built-in clang-tidy)
     c = { 'cpplint' },
     cpp = { 'cpplint' },
@@ -339,7 +356,13 @@ do
   vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWritePost', 'InsertLeave' }, {
     group = lint_augroup,
     callback = function()
-      if vim.bo.modifiable then lint.try_lint() end
+      if vim.bo.modifiable then
+        local ok, lint = pcall(require, 'lint')
+        if ok then
+          lint.linters_by_ft = linters_by_ft
+          lint.try_lint()
+        end
+      end
     end,
   })
 end
@@ -348,16 +371,36 @@ end
 -- 5. AUTOCOMPLETE & SNIPPETS (blink.cmp + LuaSnip)
 -- ============================================================================
 do
-  require('luasnip').setup {}
+  local function setup_luasnip()
+    if _G._luasnip_setup then return end
+    _G._luasnip_setup = true
+    pcall(function()
+      require('luasnip').setup {}
+      require('luasnip.loaders.from_vscode').lazy_load()
+    end)
+  end
 
   vim.api.nvim_create_autocmd('InsertEnter', {
     once = true,
-    callback = function() require('luasnip.loaders.from_vscode').lazy_load() end,
+    callback = setup_luasnip,
   })
 
-  require('scissors').setup {
-    snippetDir = '~/Documents/Snippets',
-  }
+  local function get_scissors()
+    local ok, scissors = pcall(require, 'scissors')
+    if ok then
+      scissors.setup { snippetDir = '~/Documents/Snippets' }
+      return scissors
+    end
+  end
+
+  vim.api.nvim_create_user_command('ScissorsAddNewSnippet', function()
+    local s = get_scissors()
+    if s then s.addNewSnippet() end
+  end, {})
+  vim.api.nvim_create_user_command('ScissorsEditSnippet', function()
+    local s = get_scissors()
+    if s then s.editSnippet() end
+  end, {})
 
   package.preload['blink-overseer'] = function()
     local provider = {}
@@ -458,11 +501,13 @@ end
 -- 6. DEBUGGING / DAP (nvim-dap + mason-nvim-dap)
 -- ============================================================================
 do
-  local dap = require 'dap'
-  local dap_view = require 'dap-view'
+  _G.load_dap = function()
+    if _G._dap_loaded then return require 'dap' end
+    _G._dap_loaded = true
 
-  -- Defer heavy debug adapter mappings until after the UI renders
-  vim.schedule(function()
+    local dap = require 'dap'
+    local dap_view = require 'dap-view'
+
     require('mason-nvim-dap').setup {
       automatic_installation = true,
       handlers = {},
@@ -472,7 +517,6 @@ do
         'javadbg', -- Java (installs `java-debug-adapter`)
         'javatest', -- Java (installs `java-test`)
         'php', -- PHP (installs `php-debug-adapter` for Xdebug)
-        -- 'cpptools', -- Alternative C/C++/Rust debugger (GDB/LLDB wrapper)
       },
     }
 
@@ -482,34 +526,58 @@ do
     dap.listeners.before.launch.dapview_config = function() dap_view.open() end
     dap.listeners.before.event_terminated.dapview_config = function() dap_view.close() end
     dap.listeners.before.event_exited.dapview_config = function() dap_view.close() end
-  end)
+
+    return dap
+  end
+
+  for _, cmd in ipairs { 'DapContinue', 'DapToggleBreakpoint', 'DapStepInto', 'DapStepOver', 'DapStepOut', 'DapTerminate', 'DapView' } do
+    vim.api.nvim_create_user_command(cmd, function(opts)
+      _G.load_dap()
+      pcall(vim.cmd, cmd .. ' ' .. (opts.args or ''))
+    end, { nargs = '*' })
+  end
 end
 
 -- ============================================================================
 -- 7. AI & TASK RUNNER (sidekick.nvim + overseer.nvim)
 -- ============================================================================
 do
-  require('sidekick').setup {
-    cli = {
-      mux = {
-        backend = 'tmux',
-        enabled = true,
-      },
-    },
-  }
+  local function init_ai_and_runner()
+    if _G._ai_runner_init then return end
+    _G._ai_runner_init = true
 
-  require('overseer').setup {
-    -- Ensure template runner delegates enum/param prompts to vim.ui.select
-    form = {
-      border = 'rounded',
-      win_opts = {
-        winblend = 0,
-      },
-    },
-    task_launcher = {
-      -- Change the bindings / provider if needed
-    },
-  }
+    pcall(function()
+      require('sidekick').setup {
+        cli = {
+          mux = {
+            backend = 'tmux',
+            enabled = true,
+          },
+        },
+      }
+    end)
+
+    pcall(function()
+      require('overseer').setup {
+        form = {
+          border = 'rounded',
+          win_opts = {
+            winblend = 0,
+          },
+        },
+        task_launcher = {},
+      }
+    end)
+  end
+
+  _G.init_ai_and_runner = init_ai_and_runner
+
+  vim.api.nvim_create_autocmd('UIEnter', {
+    once = true,
+    callback = function()
+      vim.defer_fn(init_ai_and_runner, 300)
+    end,
+  })
 end
 
 -- ============================================================================
@@ -546,7 +614,6 @@ do
     'php',
     'phpdoc',
   }
-  -- require('nvim-treesitter').install(parsers)
 
   ---@param buf integer
   ---@param language string
@@ -560,18 +627,25 @@ do
     if has_indent_query then vim.bo[buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
   end
 
-  local available_parsers = require('nvim-treesitter').get_available()
   vim.api.nvim_create_autocmd('FileType', {
     callback = function(args)
       local buf, filetype = args.buf, args.match
       local language = vim.treesitter.language.get_lang(filetype)
       if not language then return end
 
-      local installed_parsers = require('nvim-treesitter').get_installed 'parsers'
-      if vim.tbl_contains(installed_parsers, language) then
+      if pcall(vim.treesitter.language.add, language) then
         treesitter_try_attach(buf, language)
-      elseif vim.tbl_contains(available_parsers, language) then
-        require('nvim-treesitter').install(language):await(function() treesitter_try_attach(buf, language) end)
+        return
+      end
+
+      local ok, ts = pcall(require, 'nvim-treesitter')
+      if ok then
+        local available = ts.get_available()
+        if vim.tbl_contains(available, language) then
+          ts.install(language):await(function() treesitter_try_attach(buf, language) end)
+        else
+          treesitter_try_attach(buf, language)
+        end
       else
         treesitter_try_attach(buf, language)
       end

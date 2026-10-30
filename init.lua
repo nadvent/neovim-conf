@@ -28,18 +28,51 @@ require('snacks').setup {
   bigfile = { enabled = true },
   dashboard = {
     enabled = true,
+    preset = {
+      keys = {
+        { icon = ' ', key = 'p', desc = 'Projects', action = ':lua Snacks.picker.projects()' },
+        { icon = ' ', key = 'r', desc = 'Recent Files', action = ":lua Snacks.dashboard.pick('oldfiles')" },
+        { icon = ' ', key = 'f', desc = 'Find File', action = ":lua Snacks.dashboard.pick('files')" },
+        { icon = ' ', key = 'g', desc = 'Live Grep', action = ":lua Snacks.dashboard.pick('live_grep')" },
+        { icon = ' ', key = 'c', desc = 'Config', action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})" },
+        { icon = ' ', key = 't', desc = 'TODOs & Bugs', action = ':TodoTelescope' },
+        { icon = '󰠮 ', key = 'n', desc = 'Project Scratchpad', action = ':lua Snacks.scratch()' },
+        {
+          icon = ' ',
+          key = 'N',
+          desc = 'Global Tasks',
+          action = ":lua Snacks.scratch({ file = vim.fn.expand('~/Documents/Obsidian Vault/TODO.md'), name = 'Global Tasks', ft = 'markdown' })",
+        },
+        { icon = ' ', key = 's', desc = 'Restore Session', section = 'session' },
+        { icon = ' ', key = 'q', desc = 'Quit', action = ':qa' },
+      },
+    },
     sections = {
       { section = 'keys', gap = 1, padding = 1 },
-      { pane = 2, icon = ' ', title = 'Recent Files', section = 'recent_files', indent = 2, padding = 1 },
-      { pane = 2, icon = ' ', title = 'Projects', section = 'projects', indent = 2, padding = 1 },
+      {
+        pane = 2,
+        icon = ' ',
+        title = 'Projects',
+        section = 'projects',
+        indent = 2,
+        padding = 1,
+        dirs = function()
+          local projects = {}
+          for _, p in ipairs(vim.fn.glob('~/Projects/*', false, true)) do
+            p = vim.fs.normalize(p)
+            if vim.fn.isdirectory(p) == 1 then table.insert(projects, p) end
+          end
+          return projects
+        end,
+      },
       {
         pane = 2,
         icon = ' ',
         title = 'Git Status',
         section = 'terminal',
         enabled = function() return Snacks.git.get_root() ~= nil end,
-        cmd = 'git status --short --branch --renames',
-        height = 5,
+        cmd = vim.fn.stdpath 'config' .. '/lua/assets/git_status.sh',
+        height = 7,
         padding = 1,
         ttl = 5 * 60,
         indent = 3,
@@ -47,12 +80,17 @@ require('snacks').setup {
     },
   },
   explorer = { enabled = false },
+  gh = { enabled = false },
   indent = { enabled = false },
   input = { enabled = true },
   picker = {
     enabled = true,
     ui_select = true,
     sources = {
+      projects = {
+        dev = { '~/Projects' },
+        patterns = { '.git', 'package.json', 'Cargo.toml', 'pyproject.toml', 'go.mod', 'Makefile' },
+      },
       select = {
         layout = {
           preset = 'dropdown',
@@ -64,9 +102,18 @@ require('snacks').setup {
   notifier = { enabled = true },
   quickfile = { enabled = true },
   scope = { enabled = true },
+  scratch = { enabled = true },
   scroll = { enabled = false },
   statuscolumn = { enabled = false },
+  terminal = {
+    enabled = true,
+    win = {
+      position = 'bottom',
+      height = 0.35,
+    },
+  },
   words = { enabled = true },
+  zen = { enabled = true },
 }
 require 'core.options'
 require 'core.themes'

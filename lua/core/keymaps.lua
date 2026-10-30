@@ -25,6 +25,7 @@ wk.add {
   { '<leader>f', group = 'Files / Find' },
   { '<leader>g', group = 'Git' },
   { '<leader>h', group = 'Git Hunks', mode = { 'n', 'v' } },
+  { '<leader>p', group = 'Projects' },
   { '<leader>q', group = 'Session / Quit' },
   { '<leader>r', group = 'Run / Overseer' },
   { '<leader>s', group = 'Search' },
@@ -38,7 +39,14 @@ wk.add {
 }
 
 local map = vim.keymap.set
-local builtin = require 'telescope.builtin'
+local builtin = setmetatable({}, {
+  __index = function(_, k)
+    return function(...)
+      if _G.init_telescope then _G.init_telescope() end
+      return require('telescope.builtin')[k](...)
+    end
+  end,
+})
 
 -- Helper to safely delete buffers without messing up window splits (using mini.bufremove)
 local function bufdelete(force)
@@ -107,11 +115,13 @@ map('v', '<A-k>', ":<C-u>execute \"'<,'>move '<-\" . (v:count1 + 1)<cr>gv=gv", {
 -- 3. WINDOWS & SPLITS
 -- ============================================================================
 
--- Window navigation
-map('n', '<C-h>', '<C-w>h', { desc = 'Focus Left Window' })
-map('n', '<C-j>', '<C-w>j', { desc = 'Focus Lower Window' })
-map('n', '<C-k>', '<C-w>k', { desc = 'Focus Upper Window' })
-map('n', '<C-l>', '<C-w>l', { desc = 'Focus Right Window' })
+-- Window navigation (Normal & Terminal mode)
+map({ 'n', 't' }, '<C-h>', '<cmd>wincmd h<cr>', { desc = 'Focus Left Window' })
+map({ 'n', 't' }, '<C-j>', '<cmd>wincmd j<cr>', { desc = 'Focus Lower Window' })
+map({ 'n', 't' }, '<C-k>', '<cmd>wincmd k<cr>', { desc = 'Focus Upper Window (Back to Code)' })
+map({ 'n', 't' }, '<C-l>', '<cmd>wincmd l<cr>', { desc = 'Focus Right Window' })
+map('t', '<C-w>', '<C-\\><C-n><C-w>', { desc = 'Window Navigation from Terminal' })
+map('t', '<Esc><Esc>', '<C-\\><C-n>', { desc = 'Exit Terminal Mode to Normal Mode' })
 
 -- Window resizing using arrow keys
 map('n', '<C-Up>', '<cmd>resize +2<cr>', { desc = 'Increase Window Height' })
@@ -153,9 +163,38 @@ map('n', '<leader>`', '<cmd>e #<cr>', { desc = 'Switch to Alternate Buffer' })
 map('n', '<leader>bd', function() bufdelete(false) end, { desc = 'Delete Buffer' })
 map('n', '<leader>bD', function() bufdelete(true) end, { desc = 'Delete Buffer (Force)' })
 
--- Yazi File Manager
+-- File Explorers (Mini.files & Yazi)
+map('n', '<leader>e', function()
+  if _G.BufferlineToggleMiniFiles then
+    _G.BufferlineToggleMiniFiles()
+  else
+    if _G.init_mini_files then _G.init_mini_files() end
+    local mf = require 'mini.files'
+    if not mf.close() then
+      local bufname = vim.api.nvim_buf_get_name(0)
+      if bufname ~= '' and vim.uv.fs_stat(bufname) then
+        mf.open(bufname, true)
+      else
+        mf.open(vim.fn.getcwd(), true)
+      end
+    end
+  end
+end, { desc = 'Toggle File Explorer (Mini.files)' })
 map({ 'n', 'v' }, '<leader>ff', '<cmd>Yazi<cr>', { desc = 'Open Yazi at Current File' })
 map({ 'n', 'v' }, '<leader>fF', '<cmd>Yazi cwd<cr>', { desc = 'Open Yazi at CWD' })
+
+-- Project Management (<leader>p)
+map('n', '<leader>pp', function() Snacks.picker.projects() end, { desc = 'Find Projects' })
+map('n', '<leader>fp', function() Snacks.picker.projects() end, { desc = 'Find Projects' })
+map({ 'n', 't' }, '<leader>pt', function() Snacks.terminal.toggle() end, { desc = 'Toggle Project Terminal (Bottom Split)' })
+map({ 'n', 't' }, '<C-/>', function() Snacks.terminal.toggle() end, { desc = 'Toggle Project Terminal' })
+map({ 'n', 't' }, '<C-_>', function() Snacks.terminal.toggle() end, { desc = 'Toggle Project Terminal' })
+map('n', '<leader>pn', function() Snacks.scratch() end, { desc = 'Toggle Project Scratchpad' })
+map('n', '<leader>pg', function()
+  Snacks.scratch { file = vim.fn.expand '~/Documents/Obsidian Vault/TODO.md', name = 'Global Tasks', ft = 'markdown' }
+end, { desc = 'Toggle Global Tasks' })
+map('n', '<leader>pd', '<cmd>Yazi cwd<cr>', { desc = 'Open Yazi at Project Root' })
+map('n', '<leader>ps', function() require('persistence').load() end, { desc = 'Restore Project Session' })
 
 -- ============================================================================
 -- 5. SEARCH (TELESCOPE)
@@ -168,6 +207,8 @@ map('n', '<leader>sk', builtin.keymaps, { desc = 'Search Keymaps' })
 map('n', '<leader>ss', builtin.builtin, { desc = 'Search Telescope Pickers' })
 map({ 'n', 'v' }, '<leader>sw', builtin.grep_string, { desc = 'Search Current Word' })
 map('n', '<leader>sg', builtin.live_grep, { desc = 'Search by Grep' })
+map('n', '<leader>st', '<cmd>TodoTelescope<cr>', { desc = 'Search TODOs / Fixes' })
+map('n', '<leader>sb', '<cmd>TodoTelescope keywords=FIX,FIXME,BUG,ISSUE<cr>', { desc = 'Search Bugs / Fixes' })
 map('n', '<leader>sd', builtin.diagnostics, { desc = 'Search Diagnostics' })
 map('n', '<leader>sr', builtin.resume, { desc = 'Resume Search' })
 map('n', '<leader>s.', builtin.oldfiles, { desc = 'Search Recent Files' })
@@ -270,6 +311,10 @@ map('n', '[e', diagnostic_goto(false, 'ERROR'), { desc = 'Prev Error' })
 map('n', ']w', diagnostic_goto(true, 'WARN'), { desc = 'Next Warning' })
 map('n', '[w', diagnostic_goto(false, 'WARN'), { desc = 'Prev Warning' })
 
+-- In-code TODO / Bug navigation jumps
+map('n', ']t', function() require('todo-comments').jump_next() end, { desc = 'Next TODO / Bug' })
+map('n', '[t', function() require('todo-comments').jump_prev() end, { desc = 'Previous TODO / Bug' })
+
 -- Quickfix & Location list toggles
 map('n', '<leader>xl', function()
   local is_open = vim.fn.getloclist(0, { winid = 0 }).winid ~= 0
@@ -288,17 +333,23 @@ map('n', ']q', vim.cmd.cnext, { desc = 'Next Quickfix Item' })
 map('n', '[l', vim.cmd.lprev, { desc = 'Prev Location Item' })
 map('n', ']l', vim.cmd.lnext, { desc = 'Next Location Item' })
 
--- Trouble diagnostic views
+-- Trouble diagnostic & task views
 map('n', '<leader>xx', '<cmd>Trouble diagnostics toggle<cr>', { desc = 'Toggle Diagnostics (Trouble)' })
 map('n', '<leader>xX', '<cmd>Trouble diagnostics toggle filter.buf=0<cr>', { desc = 'Buffer Diagnostics (Trouble)' })
+map('n', '<leader>xt', '<cmd>Trouble todo toggle<cr>', { desc = 'Toggle TODOs (Trouble)' })
+map('n', '<leader>xT', '<cmd>Trouble todo toggle filter.buf=0<cr>', { desc = 'Buffer TODOs (Trouble)' })
 map('n', '<leader>xL', '<cmd>Trouble loclist toggle<cr>', { desc = 'Location List (Trouble)' })
 map('n', '<leader>xQ', '<cmd>Trouble qflist toggle<cr>', { desc = 'Quickfix List (Trouble)' })
+
+-- Scratchpads
+map('n', '<leader>.', function() Snacks.scratch() end, { desc = 'Toggle Project Scratchpad' })
+map('n', '<leader>S', function() Snacks.scratch.select() end, { desc = 'Select Scratchpad' })
 
 -- ============================================================================
 -- 8. DEBUGGING (DAP) & RUNNER (OVERSEER)
 -- ============================================================================
 
-local function dap() return require 'dap' end
+local function dap() return (_G.load_dap and _G.load_dap()) or require 'dap' end
 
 map('n', '<leader>dc', function() dap().continue() end, { desc = 'Start / Continue' })
 map('n', '<leader>di', function() dap().step_into() end, { desc = 'Step Into' })
@@ -349,6 +400,12 @@ map('n', '<leader>gL', builtin.git_bcommits, { desc = 'Git Buffer Commits' })
 map('n', '<leader>gs', builtin.git_status, { desc = 'Git Status' })
 map('n', '<leader>gb', builtin.git_branches, { desc = 'Git Branches' })
 
+-- GitHub Issues & PRs (Snacks.gh)
+map('n', '<leader>gi', function() Snacks.picker.gh_issue() end, { desc = 'GitHub Issues (Open)' })
+map('n', '<leader>gI', function() Snacks.picker.gh_issue { state = 'all' } end, { desc = 'GitHub Issues (All)' })
+map('n', '<leader>gp', function() Snacks.picker.gh_pr() end, { desc = 'GitHub Pull Requests (Open)' })
+map('n', '<leader>gP', function() Snacks.picker.gh_pr { state = 'all' } end, { desc = 'GitHub Pull Requests (All)' })
+
 -- ============================================================================
 -- 10. UI & EDITOR TOGGLES (<leader>u)
 -- ============================================================================
@@ -360,6 +417,8 @@ map('n', '<leader>uI', function()
   vim.api.nvim_input 'I'
 end, { desc = 'Inspect Treesitter Tree' })
 map('n', '<leader>uP', '<cmd>Pack<cr>', { desc = 'Plugin / Pack UI' })
+map('n', '<leader>uz', function() Snacks.zen() end, { desc = 'Toggle Zen Mode' })
+map('n', '<leader>up', function() require('core.noctalia').toggle_profile() end, { desc = 'Toggle Theme Profile (Noctalia/Standard)' })
 
 -- LazyVim-style toggles
 map('n', '<leader>uw', function()
