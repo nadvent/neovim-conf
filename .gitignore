@@ -13,3 +13,16 @@ lua/assets/catppuccin-latte/icons/
 nvim-pack-lock.json
 
 .DS_Store
+nvim.log
+__pycache__/
+*.pyc
+
+# Local guides, companion CLI & agent/env files
+docs/
+tools/
+**/GEMINI.md
+GEMINI.md
+.agents/
+.env
+.env.*
+!.env.example

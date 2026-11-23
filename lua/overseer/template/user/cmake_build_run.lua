@@ -21,16 +21,17 @@ local function create_builder()
     if params.build_type:find 'ASan' then cxx_flags = cxx_flags .. ' -fsanitize=address,undefined -fno-omit-frame-pointer' end
     if params.extra_flags and params.extra_flags ~= '' then cxx_flags = cxx_flags .. ' ' .. params.extra_flags end
 
+    local sh = vim.fn.shellescape
     local configure_cmd = string.format(
-      'cmake -B %s -DCMAKE_BUILD_TYPE=%s -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s -DCMAKE_CXX_FLAGS="%s"',
-      build_dir,
-      b_type,
-      c_comp,
-      cxx_comp,
-      cxx_flags
+      'cmake -B %s -DCMAKE_BUILD_TYPE=%s -DCMAKE_C_COMPILER=%s -DCMAKE_CXX_COMPILER=%s -DCMAKE_CXX_FLAGS=%s',
+      sh(build_dir),
+      sh(b_type),
+      sh(c_comp),
+      sh(cxx_comp),
+      sh(cxx_flags)
     )
-    local build_cmd = string.format('cmake --build %s --target %s', build_dir, params.target)
-    local run_cmd = string.format('./%s/%s', build_dir, params.target)
+    local build_cmd = string.format('cmake --build %s --target %s', sh(build_dir), sh(params.target))
+    local run_cmd = sh(string.format('./%s/%s', build_dir, params.target))
 
     return {
       cmd = { 'bash', '-c', string.format('%s && %s && %s', configure_cmd, build_cmd, run_cmd) },

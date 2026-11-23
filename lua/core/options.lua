@@ -1,94 +1,84 @@
--- ============================================================
--- SECTION 1: OPTIONS
--- Core Neovim settings, leaders, options
--- ============================================================
-do
-  -- Enable faster startup by caching compiled Lua modules
-  vim.loader.enable()
+local util = require 'core.util'
 
-  --  NOTE: Must happen before plugins are loaded
-  --        (otherwise wrong leader will be used)
-  vim.g.mapleader = ' '
-  vim.g.maplocalleader = ' '
-  vim.g.have_nerd_font = true
+-- Must happen before plugins are loaded so mappings use the intended leader.
+vim.g.mapleader = ' '
+vim.g.maplocalleader = ' '
+vim.g.have_nerd_font = true
 
-  -- [[ Setting options ]]
-  -- NOTE: You can change these options as you wish!
-  --  For more options, you can see `:help option-list`
+-- Line numbers & gutter (note: snacks.statuscolumn manages vim.o.statuscolumn)
+vim.o.number = true
+vim.o.relativenumber = true
+vim.o.signcolumn = 'yes'
 
-  vim.o.number = true
-  vim.o.relativenumber = true
-  vim.o.signcolumn = 'yes'
-  vim.o.statuscolumn = '  %s%=%{v:virtnum != 0 ? "" : (v:relnum ? v:relnum : v:lnum)}    '
-  vim.o.mouse = 'a'
-  vim.o.showmode = false
-  vim.api.nvim_create_autocmd('UIEnter', {
-    once = true,
-    callback = function()
-      vim.defer_fn(function() vim.o.clipboard = 'unnamedplus' end, 50)
-    end,
-  })
-  vim.o.breakindent = true
-  vim.o.undofile = true
-  vim.o.ignorecase = true
-  vim.o.smartcase = true
-  vim.o.signcolumn = 'yes'
-  vim.o.updatetime = 250
-  vim.o.timeoutlen = 300
-  vim.o.splitright = true
-  vim.o.splitbelow = true
-  vim.opt.colorcolumn = '80'
-  vim.opt.swapfile = false
-  vim.opt.autoindent = true
-  vim.opt.expandtab = true
-  vim.opt.tabstop = 4
-  vim.opt.softtabstop = 4
-  vim.opt.shiftwidth = 4
-  vim.opt.termguicolors = true
+-- Editing & interaction
+vim.o.mouse = 'a'
+vim.o.showmode = false
+vim.o.autoread = true
+vim.o.breakindent = true
+vim.o.undofile = true
+vim.o.ignorecase = true
+vim.o.smartcase = true
+vim.o.updatetime = 250
+vim.o.timeoutlen = 300
+vim.o.splitright = true
+vim.o.splitbelow = true
+vim.o.scrolloff = 10
+vim.o.confirm = true
 
-  vim.o.list = true
-  vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
-  vim.o.inccommand = 'split'
-  vim.o.cursorline = true
-  vim.o.cmdheight = 0
+vim.opt.textwidth = 80
+vim.opt.swapfile = false
+vim.opt.autoindent = true
+vim.opt.expandtab = true
+vim.opt.tabstop = 4
+vim.opt.softtabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.termguicolors = true
+vim.opt.sessionoptions:append 'globals'
 
-  vim.o.scrolloff = 10
+vim.o.list = true
+vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
+vim.opt.fillchars:append { fold = ' ' }
 
-  vim.o.confirm = true
+-- Folding (Treesitter by default, open on file load, syntax-highlighted foldtext)
+vim.o.foldcolumn = '0'
+vim.o.foldenable = true
+vim.o.foldlevel = 99
+vim.o.foldlevelstart = 99
+vim.o.foldmethod = 'expr'
+vim.o.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
+vim.o.foldtext = ''
+vim.o.inccommand = 'split'
+vim.o.cursorline = true
+vim.o.cmdheight = 0
 
-  vim.cmd.filetype 'plugin indent on'
+-- Defer clipboard sync until UIEnter to keep startup fast
+vim.api.nvim_create_autocmd('UIEnter', {
+  group = util.augroup 'clipboard_init',
+  once = true,
+  callback = function()
+    vim.defer_fn(function() vim.o.clipboard = 'unnamedplus' end, 50)
+  end,
+})
 
-  -- Change File System
-  vim.g.loaded_netrwPlugin = 1
-  vim.g.loaded_netrw = 1
+-- Enable Neovim native UI2 subsystem (experimental)
+pcall(function()
+  require('vim._core.ui2').enable {
+    enable = true,
+    msg = {
+      targets = 'cmd',
+    },
+  }
+end)
 
-  if vim.g.neovide then
-    -- Put anything you want to happen only in Neovide here
-    vim.o.guifont = 'Liga SFMono Nerd Font:h14' -- text below applies for VimScript
-    vim.opt.linespace = 0
-    vim.g.neovide_opacity = 1.0
-    vim.g.neovide_normal_opacity = 0.7
+vim.cmd.filetype 'plugin indent on'
 
-    -- Hook into Noctalia's generated theme file
-    local function apply_noctalia()
-      local config_dir = vim.env.XDG_CONFIG_HOME or vim.fn.expand '~/.config'
-      local f = io.open(config_dir .. '/ghostty/themes/noctalia', 'r')
-      if not f then return end
+-- Disable unused builtin plugins
+vim.g.loaded_netrwPlugin = 1
+vim.g.loaded_netrw = 1
+vim.g.loaded_fzf = 1
 
-      local theme = {}
-      for line in f:lines() do
-        local k, v = line:match '^%s*([%w_%-]+)%s*=%s*(#[%x]+)'
-        if k and v then theme[k] = v end
-      end
-      f:close()
-
-      if theme['background'] then
-        vim.api.nvim_set_hl(0, 'Normal', { bg = theme['background'], fg = theme['foreground'] })
-        vim.api.nvim_set_hl(0, 'NormalFloat', { bg = theme['background'], fg = theme['foreground'] })
-      end
-    end
-
-    apply_noctalia()
-    vim.api.nvim_create_autocmd({ 'ColorScheme', 'FocusGained' }, { callback = apply_noctalia })
-  end
+if vim.g.neovide then
+  vim.opt.linespace = 6
+  vim.g.neovide_opacity = 1.0
+  vim.g.neovide_normal_opacity = 1.00
 end

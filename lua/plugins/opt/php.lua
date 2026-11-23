@@ -1,19 +1,21 @@
--- plugins/opt/php.lua
-local function gh(repo) return 'https://github.com/' .. repo end
+local util = require 'core.util'
+
+local M = {}
 
 vim.pack.add {
-  gh 'adalessa/laravel.nvim',
+  util.gh 'adalessa/laravel.nvim',
 }
 
 require('laravel').setup()
 
-vim.api.nvim_create_autocmd('FileType', {
-  pattern = 'php',
-  callback = function(args)
-    local function map(mode, lhs, rhs, desc) vim.keymap.set(mode, lhs, rhs, { buffer = args.buf, desc = desc }) end
+--- Attach PHP/Laravel buffer-local keymaps.
+---@param buf integer
+function M.on_filetype(buf)
+  local function map(lhs, rhs, desc) vim.keymap.set('n', lhs, rhs, { buffer = buf, desc = desc }) end
 
-    map('n', '<leader>la', '<cmd>Laravel artisan<cr>', 'Laravel: Artisan Commands')
-    map('n', '<leader>lr', '<cmd>Laravel routes<cr>', 'Laravel: Routes')
-    map('n', '<leader>lm', '<cmd>Laravel related<cr>', 'Laravel: Related Models/Views')
-  end,
-})
+  map('<leader>la', '<cmd>Laravel artisan<cr>', 'Laravel: Artisan Commands')
+  map('<leader>lr', '<cmd>Laravel routes<cr>', 'Laravel: Routes')
+  map('<leader>lm', '<cmd>Laravel related<cr>', 'Laravel: Related Models/Views')
+end
+
+return M

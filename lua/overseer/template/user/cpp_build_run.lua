@@ -41,11 +41,13 @@ return {
       table.insert(flags, '-O3')
     end
 
-    local compile_args = { params.compiler, file, '-o', out }
+    local esc_file = vim.fn.shellescape(file)
+    local esc_out = vim.fn.shellescape(out)
+    local compile_args = { params.compiler, esc_file, '-o', esc_out }
     vim.list_extend(compile_args, flags)
 
     return {
-      cmd = { 'bash', '-c', table.concat(compile_args, ' ') .. ' && ' .. out },
+      cmd = { 'bash', '-c', table.concat(compile_args, ' ') .. ' && ' .. esc_out },
       components = {
         { 'on_output_quickfix', open = false },
         'on_complete_notify',

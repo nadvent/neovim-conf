@@ -73,12 +73,19 @@ return {
         name = 'uv: Add / Install Package',
         desc = 'Add package to project (uv add <package>)',
         builder = function(params)
+          local pkg = vim.trim(params.package or '')
+          if pkg == '' then
+            vim.notify('uv add: package name cannot be empty', vim.log.levels.WARN)
+            return nil
+          end
           local cmd = { 'uv', 'add' }
           if params.dev then table.insert(cmd, '--dev') end
-          table.insert(cmd, params.package)
+          for arg in string.gmatch(pkg, '%S+') do
+            table.insert(cmd, arg)
+          end
           return {
             cmd = cmd,
-            name = 'uv add ' .. params.package,
+            name = 'uv add ' .. pkg,
             components = {
               { 'on_output_quickfix', open = false },
               'on_complete_notify',
@@ -90,6 +97,7 @@ return {
           package = {
             type = 'string',
             name = 'Package Name',
+            optional = false,
             order = 1,
           },
           dev = {

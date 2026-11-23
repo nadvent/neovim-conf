@@ -1,9 +1,10 @@
--- plugins/opt/rust.lua
-local function gh(repo) return 'https://github.com/' .. repo end
+local util = require 'core.util'
+
+local M = {}
 
 vim.pack.add {
-  gh 'mrcjkb/rustaceanvim',
-  gh 'saecki/crates.nvim',
+  util.gh 'mrcjkb/rustaceanvim',
+  util.gh 'saecki/crates.nvim',
 }
 
 require('crates').setup {
@@ -26,17 +27,18 @@ vim.g.rustaceanvim = {
   },
 }
 
-vim.api.nvim_create_autocmd('FileType', {
-  pattern = 'rust',
-  callback = function(args)
-    local function map(mode, lhs, rhs, desc) vim.keymap.set(mode, lhs, rhs, { buffer = args.buf, desc = desc }) end
+--- Attach Rust buffer-local keymaps.
+---@param buf integer
+function M.on_filetype(buf)
+  local function map(lhs, rhs, desc) vim.keymap.set('n', lhs, rhs, { buffer = buf, desc = desc }) end
 
-    map('n', 'K', function() vim.cmd.RustLsp { 'hover', 'actions' } end, 'Rust Hover Actions')
-    map('n', '<leader>ca', function() vim.cmd.RustLsp 'codeAction' end, 'Rust Code Action')
-    map('n', '<leader>cR', function() vim.cmd.RustLsp 'runnables' end, 'Rust Runnables')
-    map('n', '<leader>cd', function() vim.cmd.RustLsp 'debuggables' end, 'Rust Debuggables')
-    map('n', '<leader>cm', function() vim.cmd.RustLsp 'expandMacro' end, 'Expand Macro')
-    map('n', '<leader>ct', function() vim.cmd.RustLsp 'testables' end, 'Rust Testables')
-    map('n', '<leader>ce', function() vim.cmd.RustLsp 'explainError' end, 'Explain Compiler Error')
-  end,
-})
+  map('K', function() vim.cmd.RustLsp { 'hover', 'actions' } end, 'Rust Hover Actions')
+  map('<leader>ca', function() vim.cmd.RustLsp 'codeAction' end, 'Rust Code Action')
+  map('<leader>cR', function() vim.cmd.RustLsp 'runnables' end, 'Rust Runnables')
+  map('<leader>cD', function() vim.cmd.RustLsp 'debuggables' end, 'Rust Debuggables')
+  map('<leader>cm', function() vim.cmd.RustLsp 'expandMacro' end, 'Expand Macro')
+  map('<leader>ct', function() vim.cmd.RustLsp 'testables' end, 'Rust Testables')
+  map('<leader>ce', function() vim.cmd.RustLsp 'explainError' end, 'Explain Compiler Error')
+end
+
+return M

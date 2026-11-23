@@ -1,6 +1,8 @@
----@param repo string
----@return string
-local function gh(repo) return 'https://github.com/' .. repo end
+local util = require 'core.util'
+
+local M = {}
+
+local gh = util.gh
 
 -- ============================================================================
 -- 1. CORE CODING PLUGINS (Batched Installation)
@@ -12,6 +14,8 @@ vim.pack.add {
   gh 'mason-org/mason-lspconfig.nvim',
   gh 'WhoIsSethDaniel/mason-tool-installer.nvim',
   gh 'j-hui/fidget.nvim',
+  gh 'r4ppz/lspeek.nvim',
+  gh 'not-manu/filemention.nvim',
 
   -- Formatting & Linting
   gh 'stevearc/conform.nvim',
@@ -29,7 +33,6 @@ vim.pack.add {
 
   -- Debugging (DAP)
   gh 'mfussenegger/nvim-dap',
-  gh 'nvim-neotest/nvim-nio',
   gh 'jay-babu/mason-nvim-dap.nvim',
   gh 'igorlfs/nvim-dap-view',
 
@@ -37,24 +40,37 @@ vim.pack.add {
   gh 'folke/sidekick.nvim',
   gh 'nvim-lua/plenary.nvim',
   gh 'stevearc/overseer.nvim',
+  gh 'zbirenbaum/copilot.lua',
+  gh 'giuxtaposition/blink-cmp-copilot',
+}
+
+local state = {
+  fidget = false,
+  mason = false,
+  luasnip = false,
+  dap = false,
+  copilot = false,
+  ai_runner = false,
 }
 
 -- ============================================================================
 -- 2. LSP (Language Server Protocol & Mason)
 -- ============================================================================
 do
+  local function is_leetcode_root(config)
+    local root = config.root_dir and vim.fs.normalize(config.root_dir) or ''
+    return util.path_in_dir(root, util.PATHS.leetcode) or util.in_leetcode()
+  end
+
   vim.api.nvim_create_autocmd('LspAttach', {
-    group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
+    group = util.augroup 'lsp_attach',
     callback = function(event)
-      if not _G._fidget_loaded then
-        _G._fidget_loaded = true
+      if not state.fidget then
+        state.fidget = true
         pcall(function() require('fidget').setup {} end)
       end
 
-      local map = function(keys, func, desc, mode)
-        mode = mode or 'n'
-        vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
-      end
+      local map = function(keys, func, desc, mode) vim.keymap.set(mode or 'n', keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc }) end
 
       map('grn', vim.lsp.buf.rename, '[R]e[n]ame')
       map('gra', vim.lsp.buf.code_action, '[G]oto Code [A]ction', { 'n', 'x' })
@@ -62,7 +78,7 @@ do
 
       local client = vim.lsp.get_client_by_id(event.data.client_id)
       if client and client:supports_method('textDocument/documentHighlight', event.buf) then
-        local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
+        local highlight_augroup = vim.api.nvim_create_augroup('nvim_lsp_highlight', { clear = false })
         vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
           buffer = event.buf,
           group = highlight_augroup,
@@ -74,16 +90,16 @@ do
           callback = vim.lsp.buf.clear_references,
         })
         vim.api.nvim_create_autocmd('LspDetach', {
-          group = vim.api.nvim_create_augroup('kickstart-lsp-detach', { clear = true }),
+          group = util.augroup 'lsp_detach',
           callback = function(event2)
             vim.lsp.buf.clear_references()
-            vim.api.nvim_clear_autocmds { group = 'kickstart-lsp-highlight', buffer = event2.buf }
+            vim.api.nvim_clear_autocmds { group = 'nvim_lsp_highlight', buffer = event2.buf }
           end,
         })
       end
 
       if client and client:supports_method('textDocument/inlayHint', event.buf) then
-        map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
+        map('<leader>uh', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, 'UI: Toggle Inlay Hints')
       end
       if client and client:supports_method('textDocument/documentColor', event.buf) then vim.lsp.document_color.enable(true, { bufnr = event.buf }) end
     end,
@@ -91,7 +107,6 @@ do
 
   ---@type table<string, vim.lsp.Config>
   local servers = {
-    -- [[ C & C++ ]]
     clangd = {
       cmd = {
         'clangd',
@@ -103,64 +118,83 @@ do
         '--fallback-style=llvm',
       },
     },
-    neocmake = {}, -- Optional: LSP for CMakeLists.txt
+    neocmake = {},
 
-    -- [[ Python ]]
-    -- Option 1: basedpyright (fast type checking) + ruff (linting, imports, hover)
     basedpyright = {
+      before_init = function(_, config)
+        if is_leetcode_root(config) then
+          config.settings = vim.tbl_deep_extend('force', config.settings or {}, {
+            basedpyright = {
+              analysis = {
+                typeCheckingMode = 'basic',
+                diagnosticSeverityOverrides = {
+                  reportUnusedImport = 'none',
+                  reportUnusedVariable = 'none',
+                  reportUnusedExpression = 'none',
+                  reportWildcardImportFromLibrary = 'none',
+                  reportMissingImports = 'error',
+                },
+              },
+            },
+          })
+        end
+      end,
       settings = {
         basedpyright = {
           analysis = {
-            typeCheckingMode = 'strict', -- 'off' | 'basic' | 'standard' | 'strict' | 'all'
-            disableOrganizeImports = true, -- Let Ruff handle import sorting
+            typeCheckingMode = 'strict',
+            disableOrganizeImports = true,
           },
         },
       },
     },
-    ruff = {},
-    -- Option 2: pyright = {},
-    -- Option 3: pylsp = {},
 
-    -- [[ Java ]]
-    -- NOTE: If you use `mfussenegger/nvim-jdtls` in your separate java.lua file,
-    -- comment out `jdtls` here so nvim-lspconfig doesn't launch a duplicate server.
+    ruff = {
+      before_init = function(_, config)
+        if is_leetcode_root(config) then
+          config.init_options = vim.tbl_deep_extend('force', config.init_options or {}, {
+            settings = {
+              lineLength = 120,
+              lint = {
+                ignore = {
+                  'E401',
+                  'E402',
+                  'E501',
+                  'E701',
+                  'E702',
+                  'E731',
+                  'E741',
+                  'F401',
+                  'F403',
+                  'F405',
+                  'F841',
+                },
+              },
+            },
+          })
+        end
+      end,
+    },
+
+    -- jdtls is started by nvim-lspconfig; plugins/opt/java.lua provides extra nvim-jdtls actions
     jdtls = {},
 
-    -- [[ Rust ]]
-    -- NOTE: If you use `mrcjkb/rustaceanvim` in your separate rust.lua file,
-    -- comment out `rust_analyzer` here! rustaceanvim manages the LSP lifecycle itself.
-    -- rust_analyzer = {
-    --   settings = {
-    --     ['rust-analyzer'] = {
-    --       checkOnSave = true,
-    --       check = { command = 'clippy' },
-    --     },
-    --   },
-    -- },
-
-    -- [[ Typst ]]
+    -- rust_analyzer is managed by rustaceanvim in plugins/opt/rust.lua
     tinymist = {
       settings = {
-        formatterMode = 'typstyle', -- 'typstyle' | 'prettypst' | 'disable'
-        exportPdf = 'onType', -- 'never' | 'onSave' | 'onType'
+        formatterMode = 'typstyle',
+        exportPdf = 'onType',
       },
     },
 
-    -- [[ LaTeX ]]
     texlab = {},
-
-    -- [[ Markdown ]]
     marksman = {},
-
-    -- [[ PHP ]]
     intelephense = {},
 
-    -- [[HTML]]
     cssls = {
       filetypes = { 'css', 'scss', 'less', 'html' },
     },
 
-    -- [[ Lua (Neovim Config) ]]
     lua_ls = {
       on_init = function(client)
         client.server_capabilities.documentFormattingProvider = false
@@ -169,7 +203,7 @@ do
           if path ~= vim.fn.stdpath 'config' and (vim.uv.fs_stat(path .. '/.luarc.json') or vim.uv.fs_stat(path .. '/.luarc.jsonc')) then return end
         end
         local current_settings = client.config.settings --[[@as lspconfig.settings.lua_ls]]
-        client.config.settings.Lua = vim.tbl_deep_extend('force', current_settings.Lua, {
+        client.config.settings.Lua = vim.tbl_deep_extend('force', current_settings.Lua or {}, {
           runtime = {
             version = 'LuaJIT',
             path = { 'lua/?.lua', 'lua/?/init.lua' },
@@ -189,44 +223,27 @@ do
     },
   }
 
-  -- Register LSP configurations before enabling
   for name, server in pairs(servers) do
     vim.lsp.config(name, server)
     vim.lsp.enable(name)
   end
 
-  -- External Formatters, Linters, and Debug Adapters for Mason to auto-install
   local extra_tools = {
-    -- Lua
     'stylua',
-
-    -- C / C++
     'clang-format',
     'cpplint',
-    'gersemi', -- CMake formatter
-
-    -- Java
+    'gersemi',
     'google-java-format',
     'checkstyle',
     'java-debug-adapter',
     'java-test',
-
-    -- Typst
     'typstyle',
-
-    -- LaTeX
-    'tex-fmt', -- Fast Rust-based LaTeX formatter
-
-    -- Markdown
-    'markdownlint-cli2', -- Fast Markdown linter & formatter
-    'prettierd', -- Used for Markdown (and web filetypes)
-
-    -- PHP
-    'pint', -- Laravel Pint (zero-config PHP-CS-Fixer wrapper)
-    'phpstan', -- PHP static analysis linter
-
-    -- HTML
-    'emmet-language-server', -- Tags
+    'tex-fmt',
+    -- 'markdownlint-cli2',
+    'prettierd',
+    'pint',
+    'phpstan',
+    'emmet-language-server',
     'tailwindcss-language-server',
     'css-lsp',
   }
@@ -234,135 +251,124 @@ do
   local ensure_installed = vim.tbl_keys(servers)
   vim.list_extend(ensure_installed, extra_tools)
 
-  local function init_mason()
-    if _G._mason_initialized then return end
-    _G._mason_initialized = true
+  --- Initialize Mason, mason-lspconfig, and mason-tool-installer on demand.
+  function M.init_mason()
+    if state.mason then return end
+    state.mason = true
     require('mason').setup {}
     require('mason-tool-installer').setup {
       ensure_installed = ensure_installed,
       auto_update = false,
       run_on_start = true,
-      start_delay = 1000,
+      start_delay = 0,
     }
     require('mason-lspconfig').setup {
       automatic_enable = {
         exclude = {
           'rust_analyzer',
+          'copilot',
         },
       },
     }
   end
 
-  _G.init_mason = init_mason
-  vim.defer_fn(init_mason, 4000)
+  vim.defer_fn(M.init_mason, 4000)
 
-  vim.api.nvim_create_user_command('Mason', function()
-    init_mason()
-    vim.cmd 'Mason'
-  end, {})
+  for _, cmd in ipairs { 'Mason', 'MasonInstall', 'MasonUpdate', 'MasonLog' } do
+    vim.api.nvim_create_user_command(cmd, function(opts)
+      pcall(vim.api.nvim_del_user_command, cmd)
+      M.init_mason()
+      vim.cmd(cmd .. (opts.args ~= '' and (' ' .. opts.args) or ''))
+    end, { nargs = '*' })
+  end
+
+  pcall(
+    function()
+      require('lspeek').setup {
+        window = {
+          width = 80,
+          height = 18,
+          border = 'rounded',
+          win_opts = {
+            number = true,
+            relativenumber = false,
+          },
+        },
+        stack_limit = 10,
+        select_first = false,
+      }
+    end
+  )
 end
 
 -- ============================================================================
 -- 3. FORMATTING (conform.nvim)
 -- ============================================================================
-do
-  require('conform').setup {
-    notify_on_error = false,
-    format_on_save = function(bufnr)
-      -- Enable or disable format-on-save per filetype
-      local enabled_filetypes = {
-        lua = true,
-        c = true,
-        cpp = true,
-        python = true,
-        rust = true,
-        typst = true,
-        tex = true,
-        markdown = true,
-        php = true,
-        -- java = true,
-      }
-      if enabled_filetypes[vim.bo[bufnr].filetype] then return { timeout_ms = 500, lsp_format = 'fallback' } end
-      return nil
-    end,
-    default_format_opts = {
-      lsp_format = 'fallback',
+require('conform').setup {
+  notify_on_error = false,
+  format_on_save = function(bufnr)
+    local enabled_filetypes = {
+      lua = true,
+      c = true,
+      cpp = true,
+      python = true,
+      rust = true,
+      typst = true,
+      tex = true,
+      markdown = true,
+      php = true,
+    }
+    if enabled_filetypes[vim.bo[bufnr].filetype] then return { timeout_ms = 500, lsp_format = 'fallback' } end
+    return nil
+  end,
+  default_format_opts = {
+    lsp_format = 'fallback',
+  },
+  formatters_by_ft = {
+    lua = { 'stylua' },
+    c = { 'clang-format' },
+    cpp = { 'clang-format' },
+    cmake = { 'gersemi' },
+    python = { 'ruff_organize_imports', 'ruff_format' },
+    java = { 'google-java-format' },
+    rust = { 'rustfmt', lsp_format = 'fallback' },
+    typst = { 'typstyle' },
+    tex = { 'tex-fmt' },
+    bib = { 'tex-fmt' },
+    markdown = { 'prettierd', stop_after_first = true },
+    php = { 'pint', 'php_cs_fixer', stop_after_first = true },
+  },
+  formatters = {
+    typstyle = {
+      args = { '--column', '80' },
     },
-    formatters_by_ft = {
-      -- Lua
-      lua = { 'stylua' },
-
-      -- C & C++
-      c = { 'clang-format' },
-      cpp = { 'clang-format' },
-      cmake = { 'gersemi' },
-
-      -- Python
-      python = { 'ruff_organize_imports', 'ruff_format' },
-
-      -- Java
-      java = { 'google-java-format' },
-      -- Option 2: java = { 'clang-format' }, -- Or rely on jdtls LSP formatting
-
-      -- Rust (rustfmt is installed via `rustup`, not Mason)
-      rust = { 'rustfmt', lsp_format = 'fallback' },
-
-      -- Typst
-      typst = { 'typstyle' },
-
-      -- LaTeX
-      tex = { 'tex-fmt' },
-      bib = { 'tex-fmt' },
-
-      -- Markdown
-      markdown = { 'prettierd', 'markdownlint-cli2', stop_after_first = true },
-
-      -- PHP
-      php = { 'pint', 'php_cs_fixer', stop_after_first = true },
-    },
-  }
-
-  vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true, lsp_format = 'fallback' } end, { desc = '[F]ormat buffer' })
-end
+  },
+}
 
 -- ============================================================================
 -- 4. LINTING (nvim-lint)
 -- ============================================================================
 do
   local linters_by_ft = {
-    -- C & C++ (Optional extra style check alongside clangd's built-in clang-tidy)
     c = { 'cpplint' },
     cpp = { 'cpplint' },
     cmake = { 'cmakelint' },
-
-    -- Python (Can run alongside ruff LSP, or add 'mypy' for strict type linting)
     python = { 'ruff' },
-
-    -- Java
     java = { 'checkstyle' },
-
     tex = { 'chktex' },
-
-    -- Markdown
-    markdown = { 'markdownlint-cli2' },
-
-    -- PHP
+    -- markdown = { 'markdownlint-cli2' },
     php = { 'phpstan' },
-
-    -- Lua
   }
 
-  local lint_augroup = vim.api.nvim_create_augroup('lint', { clear = true })
   vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWritePost', 'InsertLeave' }, {
-    group = lint_augroup,
+    group = util.augroup 'nvim_lint',
     callback = function()
-      if vim.bo.modifiable then
-        local ok, lint = pcall(require, 'lint')
-        if ok then
-          lint.linters_by_ft = linters_by_ft
-          lint.try_lint()
-        end
-      end
+      if not vim.bo.modifiable then return end
+      local ok, lint = pcall(require, 'lint')
+      if not ok then return end
+      if util.in_leetcode() and vim.bo.filetype == 'python' then return end
+      lint.linters_by_ft = linters_by_ft
+      lint.try_lint()
     end,
   })
 end
@@ -372,15 +378,27 @@ end
 -- ============================================================================
 do
   local function setup_luasnip()
-    if _G._luasnip_setup then return end
-    _G._luasnip_setup = true
+    if state.luasnip then return end
+    state.luasnip = true
     pcall(function()
       require('luasnip').setup {}
       require('luasnip.loaders.from_vscode').lazy_load()
     end)
+    pcall(
+      function()
+        require('filemention').setup {
+          trigger = '@',
+          root = 'git',
+          respect_gitignore = true,
+          filetypes = { 'markdown', 'quarto', 'typst', 'tex', 'bib', 'text', 'gitcommit' },
+          finder = 'auto',
+        }
+      end
+    )
   end
 
   vim.api.nvim_create_autocmd('InsertEnter', {
+    group = util.augroup 'luasnip_init',
     once = true,
     callback = setup_luasnip,
   })
@@ -388,7 +406,7 @@ do
   local function get_scissors()
     local ok, scissors = pcall(require, 'scissors')
     if ok then
-      scissors.setup { snippetDir = '~/Documents/Snippets' }
+      scissors.setup { snippetDir = util.PATHS.snippets }
       return scissors
     end
   end
@@ -408,40 +426,33 @@ do
     function provider.new() return setmetatable({}, { __index = provider }) end
 
     function provider:get_completions(context, callback)
-      -- Only run if the buffer has Overseer's omnifunc
       if vim.bo.omnifunc ~= 'v:lua.overseer_form_omnifunc' or not _G.overseer_form_omnifunc then
         callback { is_incomplete_forward = false, is_incomplete_backward = false, items = {} }
         return
       end
 
-      -- Call Overseer's omnifunc in findstart mode (1)
       local start_col = _G.overseer_form_omnifunc(1, '')
       if not start_col or start_col < 0 then
         callback { is_incomplete_forward = false, is_incomplete_backward = false, items = {} }
         return
       end
 
-      -- Extract current text typed after the field label
-      local line = context.line
-      local cursor_col = context.cursor[2]
-      local base = line:sub(start_col + 1, cursor_col)
-
-      -- Call Overseer's omnifunc in search mode (0)
+      local base = context.line:sub(start_col + 1, context.cursor[2])
       local results = _G.overseer_form_omnifunc(0, base)
       if not results or #results == 0 then
         callback { is_incomplete_forward = false, is_incomplete_backward = false, items = {} }
         return
       end
 
-      -- Map Overseer results to Blink completion items
       local items = {}
+      local enum_kind = require('blink.cmp.types').CompletionItemKind.EnumMember
       for _, item in ipairs(results) do
         local word = type(item) == 'string' and item or item.word
         local menu = (type(item) == 'table' and item.menu) and item.menu or 'Overseer'
         table.insert(items, {
           label = word,
           insertText = word,
-          kind = require('blink.cmp.types').CompletionItemKind.EnumMember,
+          kind = enum_kind,
           detail = menu,
         })
       end
@@ -481,8 +492,19 @@ do
       ghost_text = { enabled = true },
     },
     sources = {
-      default = { 'lsp', 'path', 'snippets', 'overseer' },
+      default = { 'filemention', 'lsp', 'path', 'snippets', 'copilot', 'buffer', 'overseer' },
       providers = {
+        filemention = {
+          name = 'filemention',
+          module = 'filemention.sources.blink',
+          score_offset = 15,
+        },
+        copilot = {
+          name = 'copilot',
+          module = 'blink-cmp-copilot',
+          async = true,
+          enabled = function() return not util.in_leetcode() end,
+        },
         overseer = {
           name = 'Overseer',
           module = 'blink-overseer',
@@ -498,85 +520,136 @@ do
 end
 
 -- ============================================================================
--- 6. DEBUGGING / DAP (nvim-dap + mason-nvim-dap)
+-- 6. DEBUGGING / DAP (nvim-dap + mason-nvim-dap + nvim-dap-view)
 -- ============================================================================
-do
-  _G.load_dap = function()
-    if _G._dap_loaded then return require 'dap' end
-    _G._dap_loaded = true
 
-    local dap = require 'dap'
-    local dap_view = require 'dap-view'
+--- Lazily initialize nvim-dap, mason-nvim-dap, and nvim-dap-view.
+---@return table dap
+function M.load_dap()
+  if state.dap then return require 'dap' end
+  state.dap = true
 
-    require('mason-nvim-dap').setup {
-      automatic_installation = true,
-      handlers = {},
-      ensure_installed = {
-        'codelldb', -- C, C++, and Rust
-        'python', -- Python (installs `debugpy`)
-        'javadbg', -- Java (installs `java-debug-adapter`)
-        'javatest', -- Java (installs `java-test`)
-        'php', -- PHP (installs `php-debug-adapter` for Xdebug)
-      },
-    }
+  local dap = require 'dap'
+  local dap_view = require 'dap-view'
 
-    dap_view.setup()
+  require('mason-nvim-dap').setup {
+    automatic_installation = true,
+    handlers = {},
+    ensure_installed = {
+      'codelldb',
+      'python',
+      'javadbg',
+      'javatest',
+      'php',
+    },
+  }
 
-    dap.listeners.before.attach.dapview_config = function() dap_view.open() end
-    dap.listeners.before.launch.dapview_config = function() dap_view.open() end
-    dap.listeners.before.event_terminated.dapview_config = function() dap_view.close() end
-    dap.listeners.before.event_exited.dapview_config = function() dap_view.close() end
+  dap_view.setup()
 
-    return dap
-  end
+  dap.listeners.before.attach.dapview_config = function() dap_view.open() end
+  dap.listeners.before.launch.dapview_config = function() dap_view.open() end
+  dap.listeners.before.event_terminated.dapview_config = function() dap_view.close() end
+  dap.listeners.before.event_exited.dapview_config = function() dap_view.close() end
 
-  for _, cmd in ipairs { 'DapContinue', 'DapToggleBreakpoint', 'DapStepInto', 'DapStepOver', 'DapStepOut', 'DapTerminate', 'DapView' } do
-    vim.api.nvim_create_user_command(cmd, function(opts)
-      _G.load_dap()
-      pcall(vim.cmd, cmd .. ' ' .. (opts.args or ''))
-    end, { nargs = '*' })
-  end
+  return dap
+end
+
+for _, cmd in ipairs {
+  'DapContinue',
+  'DapToggleBreakpoint',
+  'DapStepInto',
+  'DapStepOver',
+  'DapStepOut',
+  'DapTerminate',
+  'DapViewToggle',
+  'DapViewOpen',
+  'DapViewClose',
+} do
+  vim.api.nvim_create_user_command(cmd, function(opts)
+    pcall(vim.api.nvim_del_user_command, cmd)
+    M.load_dap()
+    pcall(vim.cmd, cmd .. (opts.args ~= '' and (' ' .. opts.args) or ''))
+  end, { nargs = '*' })
 end
 
 -- ============================================================================
--- 7. AI & TASK RUNNER (sidekick.nvim + overseer.nvim)
+-- 7. AI & TASK RUNNER (sidekick.nvim + copilot.lua + overseer.nvim)
 -- ============================================================================
 do
-  local function init_ai_and_runner()
-    if _G._ai_runner_init then return end
-    _G._ai_runner_init = true
-
-    pcall(function()
-      require('sidekick').setup {
-        cli = {
-          mux = {
-            backend = 'tmux',
-            enabled = true,
+  local function init_copilot()
+    if state.copilot or util.in_leetcode() then return end
+    state.copilot = true
+    pcall(
+      function()
+        require('copilot').setup {
+          suggestions = {
+            enabled = false,
+            debounce = 400,
           },
-        },
-      }
-    end)
-
-    pcall(function()
-      require('overseer').setup {
-        form = {
-          border = 'rounded',
-          win_opts = {
-            winblend = 0,
-          },
-        },
-        task_launcher = {},
-      }
-    end)
+          panel = { enabled = false },
+        }
+      end
+    )
   end
 
-  _G.init_ai_and_runner = init_ai_and_runner
+  vim.api.nvim_create_autocmd('InsertEnter', {
+    group = util.augroup 'copilot_init',
+    once = true,
+    callback = init_copilot,
+  })
+
+  local function init_ai_and_runner()
+    if state.ai_runner then return end
+    state.ai_runner = true
+
+    local in_leetcode = util.in_leetcode()
+    if not in_leetcode then init_copilot() end
+
+    pcall(
+      function()
+        require('sidekick').setup {
+          nes = {
+            enabled = not in_leetcode,
+          },
+          copilot = {
+            status = {
+              enabled = not in_leetcode,
+            },
+          },
+          cli = {
+            mux = {
+              backend = 'tmux',
+              enabled = true,
+            },
+            tools = {
+              antigravity = {
+                cmd = { 'agy' },
+              },
+            },
+          },
+        }
+      end
+    )
+
+    pcall(
+      function()
+        require('overseer').setup {
+          form = {
+            border = 'rounded',
+            win_opts = {
+              winblend = 0,
+            },
+          },
+          task_launcher = {},
+        }
+      end
+    )
+  end
 
   vim.api.nvim_create_autocmd('UIEnter', {
+    group = util.augroup 'ai_runner_init',
     once = true,
-    callback = function()
-      vim.defer_fn(init_ai_and_runner, 300)
-    end,
+    callback = function() vim.defer_fn(init_ai_and_runner, 300) end,
   })
 end
 
@@ -584,50 +657,37 @@ end
 -- 8. TREESITTER
 -- ============================================================================
 do
-  local parsers = {
-    -- Core & Config
-    'bash',
-    'diff',
-    'lua',
-    'luadoc',
-    'query',
-    'vim',
-    'vimdoc',
-    'toml',
-    'json',
-    'yaml',
-    'regex',
-
-    -- Target Languages
-    'c',
-    'cpp',
-    'cmake',
-    'python',
-    'java',
-    'rust',
-    'typst',
-    'latex',
-    'bibtex',
-    'markdown',
-    'markdown_inline',
-    'html',
-    'php',
-    'phpdoc',
-  }
+  local textobjects_ready = false
 
   ---@param buf integer
   ---@param language string
-  local function treesitter_try_attach(buf, language)
+  ---@param refresh_folds? boolean
+  local function treesitter_try_attach(buf, language, refresh_folds)
     if not vim.api.nvim_buf_is_valid(buf) then return end
     if not vim.treesitter.language.add(language) then return end
 
+    if not textobjects_ready then
+      textobjects_ready = true
+      pcall(function()
+        require('nvim-treesitter-textobjects').setup {
+          select = { lookahead = true },
+        }
+      end)
+    end
+
     vim.treesitter.start(buf, language)
 
-    local has_indent_query = vim.treesitter.query.get(language, 'indents') ~= nil
-    if has_indent_query then vim.bo[buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
+    if vim.treesitter.query.get(language, 'indents') ~= nil then vim.bo[buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
+
+    if refresh_folds and vim.bo[buf].buftype == '' and vim.bo[buf].filetype ~= 'bigfile' then
+      for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+        if vim.api.nvim_win_is_valid(win) and vim.wo[win].foldmethod == 'expr' then pcall(vim.api.nvim_win_call, win, function() vim.cmd 'normal! zx' end) end
+      end
+    end
   end
 
   vim.api.nvim_create_autocmd('FileType', {
+    group = util.augroup 'treesitter_attach',
     callback = function(args)
       local buf, filetype = args.buf, args.match
       local language = vim.treesitter.language.get_lang(filetype)
@@ -642,13 +702,14 @@ do
       if ok then
         local available = ts.get_available()
         if vim.tbl_contains(available, language) then
-          ts.install(language):await(function() treesitter_try_attach(buf, language) end)
-        else
-          treesitter_try_attach(buf, language)
+          ts.install(language):await(function() treesitter_try_attach(buf, language, true) end)
+          return
         end
-      else
-        treesitter_try_attach(buf, language)
       end
+
+      treesitter_try_attach(buf, language)
     end,
   })
 end
+
+return M

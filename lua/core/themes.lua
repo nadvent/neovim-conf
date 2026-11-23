@@ -1,65 +1,59 @@
----@param repo string
----@return string
-local function gh(repo) return 'https://github.com/' .. repo end
+local util = require 'core.util'
 
--- On-demand theme loader: lazy-load theme packages before colorscheme switch
-local theme_packages = {
-  ['catppuccin.*'] = 'nvim',
-  ['.*fox'] = 'nightfox.nvim',
-  ['github_.*'] = 'github-nvim-theme',
-  ['rose%-pine.*'] = 'neovim',
-  ['everforest.*'] = 'everforest',
-  ['tokyonight.*'] = 'tokyonight.nvim',
+local M = {}
+
+M.default_colorscheme = 'koda-light'
+
+local lazy_theme_specs = {
+  { src = util.gh 'catppuccin/nvim', pattern = 'catppuccin.*', pack = 'nvim' },
+  { src = util.gh 'EdenEast/nightfox.nvim', pattern = '.*fox', pack = 'nightfox.nvim' },
+  { src = util.gh 'projekt0n/github-nvim-theme', pattern = 'github_.*', pack = 'github-nvim-theme' },
+  { src = util.gh 'rose-pine/neovim', pattern = 'rose%-pine.*', pack = 'neovim' },
+  { src = util.gh 'sainnhe/everforest', pattern = 'everforest.*', pack = 'everforest' },
+  { src = util.gh 'folke/tokyonight.nvim', pattern = 'tokyonight.*', pack = 'tokyonight.nvim' },
 }
 
+-- Register optional themes without eagerly sourcing them at startup
+vim.pack.add(
+  vim.tbl_map(function(item) return item.src end, lazy_theme_specs),
+  { load = function() end }
+)
+
+-- Load the active startup colorscheme package
+vim.pack.add { util.gh 'oskarnurm/koda.nvim' }
+
 vim.api.nvim_create_autocmd('ColorSchemePre', {
+  group = util.augroup 'lazy_colorscheme_loader',
   callback = function(args)
-    for pattern, name in pairs(theme_packages) do
-      if args.match:match('^' .. pattern .. '$') then
-        pcall(vim.cmd.packadd, name)
+    for _, item in ipairs(lazy_theme_specs) do
+      if args.match:match('^' .. item.pattern .. '$') then
+        pcall(vim.cmd.packadd, item.pack)
         break
       end
     end
   end,
 })
 
--- Load the currently active colorscheme package
-vim.pack.add { gh 'projekt0n/github-nvim-theme' }
+local function apply_syntax_overrides()
+  vim.api.nvim_set_hl(0, '@keyword', { italic = true })
+  vim.api.nvim_set_hl(0, '@keyword.function', { italic = true })
+  vim.api.nvim_set_hl(0, '@type.builtin', { italic = true })
+end
 
--- require("catppuccin").setup({
--- 	flavour = "latte",
--- 	transparent_background = true,
--- })
-require('github-theme').setup {
-  options = {
-    transparent = false,
-  },
-}
--- require('nightfox').setup {
---   options = {
---     transparent = false,
---   },
--- }
--- require("rose-pine").setup({
--- 	variant = "dawn",
--- 	styles = { transparency = true},
--- })
--- require('tokyonight').setup {
---   transparent = false,
---   styles = {
---     comments = { italic = false }, -- Disable italics in comments
---   },
--- }
---
+vim.api.nvim_create_autocmd('ColorScheme', {
+  group = util.augroup 'theme_syntax_overrides',
+  callback = apply_syntax_overrides,
+})
+
+require('koda').setup {}
 vim.g.everforest_transparent_background = 1
--- github_light, dayfox, rose-pine, tokyonight-light
-vim.cmd.colorscheme 'github_light'
 
--- Force keywords and types to italic
-vim.api.nvim_set_hl(0, '@keyword', { italic = true })
-vim.api.nvim_set_hl(0, '@keyword.function', { italic = true })
-vim.api.nvim_set_hl(0, '@type.builtin', { italic = true })
--- vim.api.nvim_set_hl(0, "@comment", { italic = true })
+vim.cmd.colorscheme(M.default_colorscheme)
+apply_syntax_overrides()
 
--- Auto-theming from Ghostty Noctalia
--- require('core.noctalia').setup()
+-- Initialize theme profile & UI highlight manager
+require('core.noctalia').setup {
+  standard_colorscheme = M.default_colorscheme,
+}
+
+return M
